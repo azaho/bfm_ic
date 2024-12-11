@@ -125,14 +125,14 @@ class Subject:
         return self.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=cache)-np.mean(neighbor_data, axis=0)
     def get_spectrogram(self, electrode_label, trial_id, window_from=None, window_to=None, 
                         normalizing_params=None, laplacian_rereferenced=False, return_power=True, 
-                        normalize_per_freq=False, cache=True, nperseg=256, noverlap=0):
+                        normalize_per_freq=False, cache=True, nperseg=256, noverlap=0, power_smoothing_factor=1e-5):
         if laplacian_rereferenced: 
             data = self.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, cache=cache, window_from=window_from, window_to=window_to)
         else: data = self.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=cache)
 
         f, t, Sxx = signal.spectrogram(data, fs=self.sampling_rate, nperseg=nperseg, noverlap=noverlap, window='boxcar')
         f, Sxx = f[(f<300) & (f>=8)], Sxx[(f<300) & (f>=8)] # only keep frequencies up to 300 Hz and above 8 Hz
-        if return_power: Sxx = 10 * np.log10(Sxx)
+        if return_power: Sxx = 10 * np.log10(Sxx + power_smoothing_factor)
         if normalize_per_freq: 
             if normalizing_params is None: 
                 normalizing_params = np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
