@@ -194,7 +194,7 @@ class RoPEMultiheadAttention(nn.Module):
         # Now back to standard attention softmax:
         attn = attn.view(batch_size, self.nhead, n_samples_q*n_electrodes*n_time_bins, n_samples_k*n_electrodes*n_time_bins)
         attn = torch.softmax(attn, dim=-1)
-        attn = torch.dropout(attn, self.dropout, self.training)
+        #attn = torch.dropout(attn, self.dropout, self.training)
 
         # Compute output
         output = torch.matmul(attn, v.view(batch_size, self.nhead, -1, self.head_dim))
