@@ -2,6 +2,7 @@ from transformer_architecture import *
 import torch.cuda as cuda
 import psutil
 import os
+from torch.profiler import profile, record_function, ProfilerActivity
 
 # Example usage
 batch_size = 1
@@ -52,8 +53,16 @@ model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_featur
 print("\nAfter initializing model:")
 print(get_memory_usage())
 
-# Forward pass
-output = model(x, electrode_emb)
+# Forward pass with profiling
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            record_shapes=True,
+            profile_memory=True) as prof:
+    with record_function("forward_pass"):
+        output = model(x, electrode_emb)
+
 print("\nAfter forward pass:")
 print(get_memory_usage())
 print(f"Output shape: {output.shape}")
+
+print("\nProfiling results:")
+print(prof.key_averages().table(sort_by="self_cuda_memory_usage"))
