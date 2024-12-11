@@ -12,6 +12,10 @@ d_model = 128  # Assuming this is the model dimension
 n_samples = 5
 n_layers = 6
 n_heads = 8
+no_grad = False
+
+if no_grad:
+    torch.set_grad_enabled(False)
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
