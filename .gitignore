@@ -1,3 +1,4 @@
 braintreebank/
 braintreebank_zip/
 venv/
+__pycache__/

@@ -24,7 +24,6 @@ links = soup.find_all('a')
 # Download each linked file
 for link in links:
     href = link.get('href')
-    print(href)
     if href:
         # Make absolute URL if relative
         file_url = urljoin(url, href)
