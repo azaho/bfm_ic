@@ -146,7 +146,7 @@ class Subject:
         return np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
 
 def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True):
-    if window_length is None: window_length = nperseg * 10 * 8 * 2 # 20 seconds
+    if window_length is None: window_length = nperseg * 8 * 10 # 10 seconds
 
     subject = Subject(sub_id)
     subject.load_neural_data(trial_id)
