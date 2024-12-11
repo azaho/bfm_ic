@@ -14,7 +14,7 @@ n_samples = 5
 n_layers = 6
 n_heads = 8
 no_grad = False
-profile = True
+to_profile = True
 
 if no_grad:
     torch.set_grad_enabled(False)
@@ -55,7 +55,7 @@ print("\nAfter initializing model:")
 print(get_memory_usage())
 
 # Forward pass with profiling
-if profile:
+if to_profile:
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 record_shapes=True,
                 profile_memory=True) as prof:
@@ -68,6 +68,6 @@ print("\nAfter forward pass:")
 print(get_memory_usage())
 print(f"Output shape: {output.shape}")
 
-if profile:
+if to_profile:
     print("\nProfiling results:")
     print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=50))
