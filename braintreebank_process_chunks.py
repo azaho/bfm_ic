@@ -10,7 +10,6 @@ import numpy as np
 import seaborn as sns
 import argparse
 
-
 class Subject:
     def __init__(self, subject_id, sampling_rate=2048):
         self.subject_id = subject_id
@@ -146,31 +145,16 @@ class Subject:
         f, t, Sxx = self.get_spectrogram(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=cache)
         return np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
 
-if __name__ == "__main__":
-    nperseg = 256
-    noverlap = 0
-    window_length = nperseg * 10 * 8 * 2 # 20 seconds
-    root_dir = ""
-    laplacian_rereferenced = False
+def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True):
+    if window_length is None: window_length = nperseg * 10 * 8 * 2 # 20 seconds
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--sub_id', type=int, required=True, help='Subject ID')
-    parser.add_argument('--trial_id', type=int, required=True, help='Trial ID')
-    parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=False)
-    parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
-    args = parser.parse_args()
-    sub_id = args.sub_id
-    trial_id = args.trial_id
-    laplacian_rereferenced = args.laplacian_rereferenced
-    max_chunks = args.max_chunks
-    
     subject = Subject(sub_id)
     subject.load_neural_data(trial_id)
     n_electrodes = len(subject.laplacian_electrodes) # TODO: remove corrupted electrodes
     total_samples = subject.neural_data[trial_id]['electrode_0'].shape[0]
 
-    print(f"Processing subject {sub_id} trial {trial_id}")
-    print(f"Total time: {total_samples/subject.sampling_rate} seconds. One chunk is {window_length/subject.sampling_rate} seconds. There are {total_samples//window_length} chunks.")
+    if verbose: print(f"Processing subject {sub_id} trial {trial_id}")
+    if verbose: print(f"Total time: {total_samples/subject.sampling_rate} seconds. One chunk is {window_length/subject.sampling_rate} seconds. There are {total_samples//window_length} chunks.")
     windows_range = range(0, total_samples, window_length)
     if max_chunks is not None: windows_range = windows_range[:max_chunks]
     for window_from in windows_range:
@@ -178,11 +162,11 @@ if __name__ == "__main__":
         data_chunk = np.zeros((n_electrodes, 37, (window_to - window_from) // nperseg), dtype=np.float32)
         for i, electrode_label in enumerate(subject.laplacian_electrodes):
             f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False)
-            data_chunk[i, :, :] = Sxx
+            data_chunk[i, :, :] = Sxx # data_chunk shape: (n_electrodes, n_freqs, n_time_bins)
         if not os.path.exists('braintreebank_data_chunks'):
             os.makedirs('braintreebank_data_chunks')
         np.save(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.npy', data_chunk)
-        print(f"Saved chunk {window_from//window_length}")
+        if verbose: print(f"Saved chunk {window_from//window_length}")
 
     # Save a plot of an example data chunk
     n_electrodes = data_chunk.shape[0]
@@ -200,4 +184,39 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.pdf')
     plt.close()
-    print(f"Saved plot of chunk {window_from//window_length}")
+    if verbose: print(f"Saved plot of chunk {window_from//window_length}")
+
+    # Save metadata about the subject and trial
+    n_time_bins = data_chunk.shape[2]
+    with open(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}.json', 'w') as f:
+        json.dump(
+            {'subject_id': sub_id, 
+             'trial_id': trial_id, 
+             'laplacian_rereferenced': laplacian_rereferenced,
+             'n_electrodes': n_electrodes,
+             'n_time_bins': n_time_bins,
+             'total_samples': total_samples,
+             'n_chunks': len(windows_range)}, f)
+    if verbose: print(f"Saved metadata for subject {sub_id} trial {trial_id}")
+
+if __name__ == "__main__":
+    root_dir = ""
+    laplacian_rereferenced = False
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sub_id', type=int, required=False, help='Subject ID', default=-1)
+    parser.add_argument('--trial_id', type=int, required=False, help='Trial ID', default=-1)
+    parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=False)
+    parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
+    args = parser.parse_args()
+    sub_id = args.sub_id
+    trial_id = args.trial_id
+    laplacian_rereferenced = args.laplacian_rereferenced
+    max_chunks = args.max_chunks
+    assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
+
+    process_subject_ids = [sub_id] if sub_id > 0 else range(1, 11)
+    for sub_id in process_subject_ids:
+        process_trial_ids = [trial_id] if trial_id > 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject
+        for trial_id in process_trial_ids:
+            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True)
