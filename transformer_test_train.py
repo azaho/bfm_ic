@@ -73,16 +73,17 @@ model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_featur
 
 dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
 
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
 # Example usage - get first 5 batches
 for i in range(len(dataloader)):
-    data = dataloader.get_next_batch()
+    data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
     print(f"Batch {i} shape:", data.shape)
-    output = model(data, electrode_emb) 
+    output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
     print(f"Output {i} shape:", output.shape)
-    # Clear gradients
-    model.zero_grad()
-    
-    # Free up memory
-    del output
-    del data
-    torch.cuda.empty_cache()
+
+    loss = output[:, 0].mean() - output[:, 1:].mean()
+    print(f"Loss: {loss.item()}")
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
