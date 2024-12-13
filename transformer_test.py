@@ -16,6 +16,18 @@ n_heads = 8
 no_grad = False
 to_profile = True
 
+# Values that fit into a single A100 GPU (~76GB VRAM)
+# batch_size = 1
+# n_electrodes = 13*10
+# n_freq_features = 37
+# n_time_bins = 160//2
+# d_model = 120# Assuming this is the model dimension
+# n_samples = 5
+# n_layers = 5
+# n_heads = 6
+# no_grad = False
+# to_profile = True
+
 if no_grad:
     torch.set_grad_enabled(False)
 
@@ -39,7 +51,7 @@ print("Initial memory usage:")
 print(get_memory_usage())
 
 # Create random input data
-x = torch.randn(batch_size, n_samples, n_electrodes, n_freq_features, n_time_bins).to(device)
+x = torch.randn(batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features).to(device)
 print("\nAfter creating input tensor:")
 print(get_memory_usage())
 

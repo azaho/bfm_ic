@@ -1,5 +1,6 @@
 braintreebank/
 braintreebank_zip/
+braintreebank_data_chunks/
 presentation/
 venv/
 __pycache__/

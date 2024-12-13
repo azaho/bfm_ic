@@ -168,12 +168,12 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     if max_chunks is not None: windows_range = windows_range[:max_chunks]
     for window_from in windows_range:
         window_to = window_from + window_length
-        data_chunk = np.zeros((n_electrodes, 37, (window_to - window_from) // nperseg), dtype=np.float32)
+        data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, 37), dtype=np.float32)
         for i, electrode_label in enumerate(subject.laplacian_electrodes):
             f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, 
                                                 normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False,
                                                 normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
-            data_chunk[i, :, :] = Sxx # data_chunk shape: (n_electrodes, n_freqs, n_time_bins)
+            data_chunk[i, :, :] = Sxx.T # data_chunk shape: (n_electrodes, n_time_bins, n_freqs)
         #print(data_chunk)
         if not os.path.exists('braintreebank_data_chunks'):
             os.makedirs('braintreebank_data_chunks')

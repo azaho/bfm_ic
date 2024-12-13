@@ -26,15 +26,16 @@ class SEEGTransformer(nn.Module):
         ])
 
     def forward(self, x, electrode_emb):
-        # x shape: (batch_size, n_samples, n_electrodes, n_freq_features, n_time_bins)
+        # x shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
         # electrode_emb shape: (n_electrodes, d_model)
-        batch_size, n_samples, n_electrodes, n_freq_features, n_time_bins = x.shape
+        batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features = x.shape
         
         # Project frequency features and combine with electrode embeddings
-        x = x.permute(0, 1, 2, 4, 3).reshape(batch_size, -1, self.freq_projection.in_features)
-        x = self.freq_projection(x)  # (batch, samples * electrodes * time_bins, d_model)
-        x = x.reshape(batch_size, n_samples, n_electrodes, n_time_bins, self.d_model)
-        
+        #x = x.reshape(batch_size, -1, self.freq_projection.in_features)
+        #x = self.freq_projection(x)  # (batch, samples * electrodes * time_bins, d_model)
+        #x = x.reshape(batch_size, n_samples, n_electrodes, n_time_bins, self.d_model)
+        x = self.freq_projection(x)
+
         # Add electrode embeddings
         electrode_emb_unsqueezed = electrode_emb.unsqueeze(1).unsqueeze(0).unsqueeze(0)
         x = x + electrode_emb_unsqueezed # x.shape: (batch_size, n_samples, n_electrodes, n_time_bins, d_model)
