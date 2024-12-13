@@ -84,6 +84,9 @@ for i in range(len(dataloader)):
 
     loss = output[:, 0].mean() - output[:, 1:].mean()
     print(f"Loss: {loss.item()}")
+    print(f"doing backward pass ")
     loss.backward()
+    print(f"doing step")
     optimizer.step()
+    print(f"zeroing grads")
     optimizer.zero_grad()

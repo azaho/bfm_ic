@@ -188,7 +188,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 16))
     axes = axes.flatten()
     for i in range(n_electrodes):
-        im = axes[i].imshow(data_chunk[i], aspect='auto', origin='lower', cmap='viridis', vmin=-2, vmax=3)
+        im = axes[i].imshow(data_chunk[i].T, aspect='auto', origin='lower', cmap='viridis', vmin=-2, vmax=3)
         axes[i].set_xticks([])
         axes[i].set_yticks([])
     # Hide any unused subplots
