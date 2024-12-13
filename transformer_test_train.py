@@ -76,9 +76,9 @@ electrode_emb = torch.nn.Parameter(torch.randn(n_electrodes, d_model).to(device)
 model.register_parameter('electrode_embeddings', electrode_emb)
 
 dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.1)
-L2_output_penalty = 0.1
-L2_electrode_penalty = 0.1
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
+L2_output_penalty = 0.01
+L2_electrode_penalty = 0.01
 
 # Example usage - get first 5 batches
 loss_store = []
