@@ -85,6 +85,9 @@ for i in range(len(dataloader)):
     
     loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean()
     print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
+
+    print(output[0, 0:1, :, 0, 0])
+    
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
