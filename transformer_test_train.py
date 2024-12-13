@@ -80,15 +80,10 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 # Example usage - get first 5 batches
 for i in range(len(dataloader)):
     data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
-    print(f"Batch {i} shape:", data.shape)
     output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
-    print(f"Output {i} shape:", output.shape)
-
-    loss = output[:, 0].mean() - output[:, 1:].mean()
-    print(f"Loss: {loss.item()}")
-    print(f"doing backward pass ")
+    
+    loss = output[:, 0].mean() + torch.max(0, 0.1 + output[:, 0:1] - output[:, 1:]).mean()
+    print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
     loss.backward()
-    print(f"doing step")
     optimizer.step()
-    print(f"zeroing grads")
     optimizer.zero_grad()
