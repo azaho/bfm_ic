@@ -77,16 +77,17 @@ model.register_parameter('electrode_embeddings', electrode_emb)
 
 dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.1)
+L2_output_penalty = 0.01
 
 # Example usage - get first 5 batches
 for i in range(len(dataloader)):
     data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
     output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
     
-    loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean()
+    loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean()
     print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
 
-    print(output[0, 0:1, :, 0, 0])
+    print(output[0, 0:2, :, 0, 0])
     
     loss.backward()
     optimizer.step()
