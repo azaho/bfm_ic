@@ -4,7 +4,7 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-trim_electrodes_to = 100
+trim_electrodes_to = 100 # TODO: make this a variable not always 100
 
 batch_size = 1
 n_electrodes = trim_electrodes_to
@@ -64,14 +64,13 @@ class BrainTreebankDataLoader:
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
 
-loss_store = []
-
 # Create electrode embeddings as part of the model
 model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_features, n_time_bins=n_time_bins,
                  d_model=d_model, n_heads=n_heads, n_layers=n_layers, dropout=0.5).to(device)
 electrode_emb1 = torch.nn.Parameter(torch.randn(n_electrodes, d_model).to(device) / np.sqrt(d_model))
 electrode_emb2 = torch.nn.Parameter(torch.randn(n_electrodes, d_model).to(device) / np.sqrt(d_model))
 electrode_emb3 = torch.nn.Parameter(torch.randn(n_electrodes, d_model).to(device) / np.sqrt(d_model))
+electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(1.0))
 
 subject_id = 2
 trial_id = 4
@@ -84,19 +83,29 @@ trial_id = 1
 dataloader3 = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
 
 
-optimizer = torch.optim.Adam(list(model.parameters()) + [electrode_emb1, electrode_emb2, electrode_emb3], lr=0.001, weight_decay=0.01)
+optimizer = torch.optim.Adam(list(model.parameters()) + [electrode_emb1, electrode_emb2, electrode_emb3, electrode_embeddings_scale], lr=0.001, weight_decay=0.01)
 L2_output_penalty = 0.01
 L2_electrode_penalty = 0.01
+
+loss_store = []
+pos_energy_store = []
+neg_energy_store = []
+emb_scale_store = []
 
 # Example usage - get first 5 batches
 for electrode_emb, dataloader in zip([electrode_emb1, electrode_emb2, electrode_emb3], [dataloader1, dataloader2, dataloader3]):
     for i in range(len(dataloader)):
         data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
-        output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
+        output = model(data, electrode_emb / torch.norm(electrode_emb) * electrode_embeddings_scale) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
         
-        loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean() + L2_electrode_penalty * (electrode_emb**2).mean()
+        loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean()# + L2_electrode_penalty * (electrode_emb**2).mean()
         loss_store.append(loss.item())
-        print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
+        pos_energy = output[:, 0:1].mean()
+        neg_energy = output[:, 1:].mean()
+        pos_energy_store.append(pos_energy.item())
+        neg_energy_store.append(neg_energy.item())
+        emb_scale_store.append(electrode_embeddings_scale.item())
+        print(f"Batch {i}  loss: {loss.item():.4f}, pos_energy: {pos_energy.item():.4f}, neg_energy: {neg_energy.item():.4f}, emb_scale: {electrode_embeddings_scale.item():.4f}")
         #print(output[0, 0:2, :, 0, 0])
 
         loss.backward()
@@ -106,5 +115,5 @@ for electrode_emb, dataloader in zip([electrode_emb1, electrode_emb2, electrode_
         # Save losses every 100 batches
         if (i + 1) % 20 == 0:
             with open(f'training_losses_multisubject.json', 'w') as f:
-                json.dump({'losses': loss_store}, f)
-            print(f"Saved losses after batch {i+1}")
+                json.dump({'losses': loss_store, 'pos_energy': pos_energy_store, 'neg_energy': neg_energy_store, 'emb_scale': emb_scale_store}, f)
+            print(f"Saved losses and energies after batch {i+1}")
