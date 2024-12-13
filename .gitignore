@@ -4,3 +4,4 @@ braintreebank_data_chunks/
 presentation/
 venv/
 __pycache__/
+training_losses*
