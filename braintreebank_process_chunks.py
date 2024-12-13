@@ -231,4 +231,4 @@ if __name__ == "__main__":
     for sub_id in process_subject_ids:
         process_trial_ids = [trial_id] if trial_id > 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject
         for trial_id in process_trial_ids:
-            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, global_per_electrode_normalizing_params=False)
+            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, global_per_electrode_normalizing_params=True)
