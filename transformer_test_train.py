@@ -82,7 +82,7 @@ for i in range(len(dataloader)):
     data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
     output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
     
-    loss = output[:, 0].mean() + torch.max(0, 0.1 + output[:, 0:1] - output[:, 1:]).mean()
+    loss = output[:, 0].mean() + torch.maximum(0, 0.1 + output[:, 0:1] - output[:, 1:]).mean()
     print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
     loss.backward()
     optimizer.step()
