@@ -6,12 +6,12 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 # Example usage
 batch_size = 1
-n_electrodes = 13
+n_electrodes = 130
 n_freq_features = 37
-n_time_bins = 160
+n_time_bins = 160//2
 d_model = 128  # Assuming this is the model dimension
 n_samples = 5
-n_layers = 6
+n_layers = 5
 n_heads = 8
 no_grad = False
 to_profile = True

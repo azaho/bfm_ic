@@ -132,7 +132,7 @@ class Subject:
 
         f, t, Sxx = signal.spectrogram(data, fs=self.sampling_rate, nperseg=nperseg, noverlap=noverlap, window='boxcar')
         f, Sxx = f[(f<300) & (f>=8)], Sxx[(f<300) & (f>=8)] # only keep frequencies up to 300 Hz and above 8 Hz
-        if return_power: Sxx = 10 * np.log10(Sxx + power_smoothing_factor)
+        if return_power: Sxx = 10 * np.log10(Sxx + power_smoothing_factor) # puts a lower bound of -50 on the power with the default power_smoothing_factor
         if normalize_per_freq: 
             if normalizing_params is None: 
                 normalizing_params = np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
@@ -145,13 +145,22 @@ class Subject:
         f, t, Sxx = self.get_spectrogram(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=cache)
         return np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
 
-def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True):
+def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True, global_per_electrode_normalizing_params=True):
     if window_length is None: window_length = nperseg * 8 * 10 # 10 seconds
 
     subject = Subject(sub_id)
     subject.load_neural_data(trial_id)
     n_electrodes = len(subject.laplacian_electrodes) # TODO: remove corrupted electrodes
     total_samples = subject.neural_data[trial_id]['electrode_0'].shape[0]
+
+    if global_per_electrode_normalizing_params:
+        if verbose: print("Computing normalizing parameters for electrodes")
+        normalizing_params = {}
+        for i, electrode_label in enumerate(subject.laplacian_electrodes):
+            mean, std = subject.get_spectrogram_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=False)
+            normalizing_params[electrode_label] = (mean, std)
+            #print(f"Normalizing params for {electrode_label}: mean={mean}, std={std}")
+        if verbose: print("Normalizing parameters computed")
 
     if verbose: print(f"Processing subject {sub_id} trial {trial_id}")
     if verbose: print(f"Total time: {total_samples/subject.sampling_rate} seconds. One chunk is {window_length/subject.sampling_rate} seconds. There are {total_samples//window_length} chunks.")
@@ -161,8 +170,11 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
         window_to = window_from + window_length
         data_chunk = np.zeros((n_electrodes, 37, (window_to - window_from) // nperseg), dtype=np.float32)
         for i, electrode_label in enumerate(subject.laplacian_electrodes):
-            f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False)
+            f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, 
+                                                normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False,
+                                                normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
             data_chunk[i, :, :] = Sxx # data_chunk shape: (n_electrodes, n_freqs, n_time_bins)
+        #print(data_chunk)
         if not os.path.exists('braintreebank_data_chunks'):
             os.makedirs('braintreebank_data_chunks')
         np.save(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.npy', data_chunk)
@@ -219,4 +231,4 @@ if __name__ == "__main__":
     for sub_id in process_subject_ids:
         process_trial_ids = [trial_id] if trial_id > 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject
         for trial_id in process_trial_ids:
-            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True)
+            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, global_per_electrode_normalizing_params=False)
