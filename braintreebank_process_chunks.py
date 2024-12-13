@@ -165,6 +165,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     if verbose: print(f"Processing subject {sub_id} trial {trial_id}")
     if verbose: print(f"Total time: {total_samples/subject.sampling_rate} seconds. One chunk is {window_length/subject.sampling_rate} seconds. There are {total_samples//window_length} chunks.")
     windows_range = range(0, total_samples, window_length)
+    if windows_range[-1] + window_length > total_samples: windows_range = windows_range[:-1] # remove last chunk if it's not full
     if max_chunks is not None: windows_range = windows_range[:max_chunks]
     for window_from in windows_range:
         window_to = window_from + window_length
