@@ -70,8 +70,10 @@ class RoPETransformerEncoderLayer(nn.Module):
         x2 = self.norm1(x)
         # process the two parts separately: positive with self-attention, negative with cross-attention
         # for cross attention, the query is the negative samples, and the key and value are the positive samples
-        x[:, :1] = x[:, :1] + self.dropout1(self.self_attn(x2[:, :1], x2[:, :1], x2[:, :1]))
-        x[:, 1:] = x[:, 1:] + self.dropout1(self.self_attn(x2[:, 1:], x2[:, :1], x2[:, :1]))
+        x_pos = self.dropout1(self.self_attn(x2[:, :1], x2[:, :1], x2[:, :1]))
+        x_neg = self.dropout1(self.self_attn(x2[:, 1:], x2[:, :1], x2[:, :1]))
+        x = torch.cat([x[:, :1] + x_pos, x[:, 1:] + x_neg], dim=1)
+
         x2 = self.norm2(x)
         x = x + self.dropout2(self.linear2(self.dropout(self.activation(self.linear1(x2)))))
         return x
