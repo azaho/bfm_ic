@@ -23,6 +23,8 @@ class SEEGTransformer(nn.Module):
                 dropout=dropout,
                 batch_first=True
             ) for _ in range(n_layers)
+        ] + [
+            nn.Linear(d_model, 1) # output layer to transform to 1D Energy output
         ])
 
     def forward(self, x, electrode_emb):
@@ -45,7 +47,8 @@ class SEEGTransformer(nn.Module):
             x = layer(x)
             
         # Reshape output back
-        output = x.reshape(batch_size, n_samples, n_electrodes, n_time_bins, self.d_model)
+        #output = x.reshape(batch_size, n_samples, n_electrodes, n_time_bins, self.d_model)
+        output = x
         return output
 
 class RoPETransformerEncoderLayer(nn.Module):
