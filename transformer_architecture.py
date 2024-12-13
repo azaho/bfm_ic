@@ -118,7 +118,8 @@ class RoPEMultiheadAttention(nn.Module):
     def _make_electrode_mask(self):
         # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)
         indices = torch.arange(self.max_n_electrodes)
-        mask = (indices.unsqueeze(0) == indices.unsqueeze(1))
+        #mask = (indices.unsqueeze(0) == indices.unsqueeze(1))
+        mask = (indices.unsqueeze(0) > indices.unsqueeze(1)) # TODO: make this only mask at the same timestep, currently masking out half of it
         self.register_buffer('electrode_mask', mask)
 
     def apply_rope_qk(self, x):

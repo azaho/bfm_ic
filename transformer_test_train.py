@@ -81,15 +81,22 @@ L2_output_penalty = 0.1
 L2_electrode_penalty = 0.1
 
 # Example usage - get first 5 batches
+loss_store = []
 for i in range(len(dataloader)):
     data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
     output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
     
     loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean() + L2_electrode_penalty * (electrode_emb**2).mean()
+    loss_store.append(loss.item())
     print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
+    #print(output[0, 0:2, :, 0, 0])
 
-    print(output[0, 0:2, :, 0, 0])
-    
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
+
+    # Save losses every 100 batches
+    if (i + 1) % 100 == 0:
+        with open(f'training_losses_subject{subject_id}_trial{trial_id}.json', 'w') as f:
+            json.dump({'losses': loss_store}, f)
+        print(f"Saved losses after batch {i+1}")
