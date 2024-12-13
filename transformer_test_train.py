@@ -69,12 +69,12 @@ class BrainTreebankDataLoader:
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
 
-electrode_emb = torch.randn(n_electrodes, d_model).to(device)
+electrode_emb = torch.nn.Parameter(torch.randn(n_electrodes, d_model) / np.sqrt(d_model)).to(device)
 model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_features, n_time_bins=n_time_bins,
                  d_model=d_model, n_heads=n_heads, n_layers=n_layers, dropout=0.1).to(device)
 
 dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
+optimizer = torch.optim.Adam(list(model.parameters()) + [electrode_emb], lr=0.001, weight_decay=0.01)
 
 # Example usage - get first 5 batches
 for i in range(len(dataloader)):
