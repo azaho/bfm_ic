@@ -67,7 +67,7 @@ class BrainTreebankDataLoader:
         return self.n_chunks-n_samples+1
 
 # Initialize model and dataloader
-torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
+#torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
 
 electrode_emb = torch.randn(n_electrodes, d_model).to(device)
 model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_features, n_time_bins=n_time_bins,
