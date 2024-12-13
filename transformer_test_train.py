@@ -79,3 +79,10 @@ for i in range(len(dataloader)):
     print(f"Batch {i} shape:", data.shape)
     output = model(data, electrode_emb) 
     print(f"Output {i} shape:", output.shape)
+    # Clear gradients
+    model.zero_grad()
+    
+    # Free up memory
+    del output
+    del data
+    torch.cuda.empty_cache()
