@@ -9,7 +9,7 @@ trial_id = 4
 chunk_from = 0
 chunk_to = 4
 
-trim_electrodes_to = 13
+trim_electrodes_to = None
 
 batch_size = 1
 n_electrodes = trim_electrodes_to
