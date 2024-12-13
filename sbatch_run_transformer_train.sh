@@ -4,6 +4,7 @@
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-1       # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
+#SBATCH --gres=gpu:a100:1
 ###export PATH="/om2/user/zaho/anaconda3/bin:$PATH"
 
 # Define arrays for each hyperparameter
