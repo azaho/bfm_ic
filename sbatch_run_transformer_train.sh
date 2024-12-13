@@ -7,6 +7,8 @@
 #SBATCH --gres=gpu:a100:1
 ###export PATH="/om2/user/zaho/anaconda3/bin:$PATH"
 
+source venv/bin/activate
+
 # Define arrays for each hyperparameter
 #n_top_pc_llm_array=(100 400 800 -1)
 #weight_decay_array=(0.0 0.001 0.005 0.01 0.02)
