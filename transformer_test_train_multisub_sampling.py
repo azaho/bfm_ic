@@ -4,7 +4,7 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-trim_electrodes_to = 100 # TODO: make this a variable not always 100
+trim_electrodes_to = 50 # TODO: make this a variable not always 100
 train_subject_trials = [(2, 4)]#[(2, 4), (1, 1), (3, 1)]
 
 batch_size = 1
