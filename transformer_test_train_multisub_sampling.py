@@ -61,7 +61,7 @@ class BrainTreebankDataLoader:
         return data.to(self.device)
 
     def __len__(self):
-        return self.n_chunks
+        return self.n_chunks-n_samples+1
 
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
