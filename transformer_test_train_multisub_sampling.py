@@ -110,10 +110,11 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         neg_data = data[:, 1:].detach()
         # Shuffle electrodes
         elec_perm = torch.randperm(n_electrodes)
-        neg_data = neg_data[:, :, elec_perm]
+        neg_data[:, 2, :] = neg_data[:, 2, elec_perm]
         # Shuffle time bins 
         time_perm = torch.randperm(n_time_bins)
-        neg_data = neg_data[:, :, :, time_perm]
+        neg_data[:, 3, :] = neg_data[:, 3, :, time_perm]
+        neg_data[:, 4, :] = torch.randn_like(neg_data[:, 4, :]) * noise_scale
         
         # Run Langevin dynamics to get samples from the model
         for k in range(n_langevin_steps):
