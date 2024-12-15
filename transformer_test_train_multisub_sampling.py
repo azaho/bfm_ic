@@ -12,7 +12,7 @@ n_electrodes = trim_electrodes_to
 n_freq_features = 37
 n_time_bins = 80
 d_model = 120# Assuming this is the model dimension
-n_samples = 1
+n_samples = 5
 n_neg_samples = 4
 n_layers = 5
 n_heads = 6
@@ -105,7 +105,8 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         pos_data = data[:, 0:1].detach()
         
         # Initialize negative samples with noise
-        neg_data = torch.randn_like(data[:, 0:1].repeat(1, n_neg_samples, 1, 1, 1)) * noise_scale
+        #neg_data = torch.randn_like(data[:, 0:1].repeat(1, n_neg_samples, 1, 1, 1)) * noise_scale
+        neg_data = data[:, 1:].detach()
         
         # Run Langevin dynamics to get samples from the model
         for k in range(n_langevin_steps):
