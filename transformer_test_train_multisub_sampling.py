@@ -106,10 +106,12 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         
         # Initialize negative samples with noise
         neg_data = torch.randn_like(data[:, 0:1].repeat(1, n_neg_samples, 1, 1, 1)) * noise_scale
-        neg_data.requires_grad_(True)
         
         # Run Langevin dynamics to get samples from the model
         for k in range(n_langevin_steps):
+            # Clear gradients and enable grad for this step only
+            neg_data = neg_data.detach().to(device).requires_grad_(True)
+            
             # Get energy of negative samples
             neg_output = model(torch.cat([pos_data, neg_data], dim=1), electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale)
             neg_energy = neg_output[:, 1:].mean()
@@ -119,14 +121,18 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
             
             # Update negative samples with Langevin dynamics
             noise = torch.randn_like(neg_data) * noise_scale
-            neg_data.data += -0.5 * langevin_stepsize * neg_grad + noise
+            neg_data = neg_data.detach() - 0.5 * langevin_stepsize * neg_grad + noise
+            
             print(f"Langevin step {k+1} of {n_langevin_steps}, neg_grad norm: {torch.norm(neg_grad).item()}")
             
+            # Clear memory
+            del neg_output, neg_energy, neg_grad, noise
+            
         # Combine positive and negative samples
-        full_data = torch.cat([pos_data, neg_data.detach()], dim=1)
+        full_data = torch.cat([pos_data, neg_data.detach()], dim=1).to(device)
         
         # Get model output on full data
-        output = model(full_data, electrode_emb / torch.norm(electrode_emb) * electrode_embeddings_scale)
+        output = model(full_data, electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale)
         
         # Compute loss (maximize positive energy, minimize negative energy)
         loss = output[:, 0].mean() - output[:, 1:].mean() + L2_output_penalty * (output**2).mean()
