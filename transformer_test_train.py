@@ -9,7 +9,7 @@ trial_id = 4
 chunk_from = 0
 chunk_to = 4
 
-trim_electrodes_to = 100
+trim_electrodes_to = 13
 
 batch_size = 1
 n_electrodes = trim_electrodes_to
@@ -86,7 +86,8 @@ for i in range(len(dataloader)):
     data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
     output = model(data, electrode_emb) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
     
-    loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean() + L2_electrode_penalty * (electrode_emb**2).mean()
+    #loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean() + L2_electrode_penalty * (electrode_emb**2).mean()
+    loss = output[:, 0].mean() - output[:, 1:].mean() + L2_output_penalty * (output**2).mean() + L2_electrode_penalty * (electrode_emb**2).mean()
     loss_store.append(loss.item())
     print(f"Batch {i} data shape: {data.shape} , output shape: {output.shape} , loss: {loss.item()}")
     #print(output[0, 0:2, :, 0, 0])

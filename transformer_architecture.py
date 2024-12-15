@@ -119,7 +119,7 @@ class RoPEMultiheadAttention(nn.Module):
         # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)
         indices = torch.arange(self.max_n_electrodes)
         #mask = (indices.unsqueeze(0) == indices.unsqueeze(1))
-        mask = (indices.unsqueeze(0) > indices.unsqueeze(1)) # TODO: make this only mask at the same timestep, currently masking out half of it
+        mask = (indices.unsqueeze(0) >= indices.unsqueeze(1)) # TODO: make this only mask at the same timestep, currently masking out half of it
         self.register_buffer('electrode_mask', mask)
 
     def apply_rope_qk(self, x):
@@ -197,11 +197,14 @@ class RoPEMultiheadAttention(nn.Module):
         combined_mask = combined_mask.unsqueeze(0).unsqueeze(0)  # (1,1,n_samples_q,n_electrodes,n_time_bins,n_samples_k,n_electrodes,n_time_bins)
 
         attn = attn.masked_fill(combined_mask, float('-inf'))
+        # Replace NaN values with 0 while preserving gradients
 
         # Now back to standard attention softmax:
         attn = attn.view(batch_size, self.nhead, n_samples_q*n_electrodes*n_time_bins, n_samples_k*n_electrodes*n_time_bins)
         attn = torch.softmax(attn, dim=-1)
+        attn = torch.where(torch.isnan(attn), torch.zeros_like(attn), attn)
         #attn = torch.dropout(attn, self.dropout, self.training)
+        #print(attn.reshape(self.nhead, n_samples_q, n_electrodes, n_time_bins, n_samples_k, n_electrodes, n_time_bins)[0, 0, :2, :10, :, :2, :10])
 
         # Compute output
         output = torch.matmul(attn, v.view(batch_size, self.nhead, -1, self.head_dim))

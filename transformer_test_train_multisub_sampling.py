@@ -4,7 +4,7 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-trim_electrodes_to = 13 # TODO: make this a variable not always 100
+trim_electrodes_to = 100 # TODO: make this a variable not always 100
 train_subject_trials = [(2, 4)]#[(2, 4), (1, 1), (3, 1)]
 
 batch_size = 1
@@ -12,7 +12,8 @@ n_electrodes = trim_electrodes_to
 n_freq_features = 37
 n_time_bins = 80
 d_model = 120# Assuming this is the model dimension
-n_samples = 5
+n_samples = 1
+n_neg_samples = 4
 n_layers = 5
 n_heads = 6
 
@@ -48,7 +49,7 @@ class BrainTreebankDataLoader:
             self.chunks.pop()
             
         # Load next chunk
-        while self.current_chunk < n_samples:
+        while len(self.chunks) < n_samples:
             new_chunk = self._load_chunk(self.current_chunk)
             self.chunks.insert(0, new_chunk)
             self.current_chunk += 1
@@ -60,7 +61,7 @@ class BrainTreebankDataLoader:
         return data.to(self.device)
 
     def __len__(self):
-        return self.n_chunks-n_samples+1
+        return self.n_chunks
 
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
@@ -90,14 +91,45 @@ pos_energy_store = []
 neg_energy_store = []
 emb_scale_store = []
 
+# Langevin dynamics parameters
+n_langevin_steps = 20
+langevin_stepsize = 0.1
+noise_scale = 0.01
+
 # Example usage - get first 5 batches
 for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
     for i in range(len(dataloader)):
         data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
-        output = model(data, electrode_emb / torch.norm(electrode_emb) * electrode_embeddings_scale) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, 1)
         
-        #loss = output[:, 0].mean() + torch.maximum(torch.tensor(0.0), 0.1 + output[:, 0:1] - output[:, 1:]).mean() + L2_output_penalty * (output**2).mean()# + L2_electrode_penalty * (electrode_emb**2).mean()
-        loss = output[:, 0].mean() - output[:, 1:].mean() + L2_output_penalty * (output**2).mean()# + L2_electrode_penalty * (electrode_emb**2).mean()
+        # Get positive samples (first element of batch)
+        pos_data = data[:, 0:1].detach()
+        
+        # Initialize negative samples with noise
+        neg_data = torch.randn_like(data[:, 0:1].repeat(1, n_neg_samples, 1, 1, 1)) * noise_scale
+        neg_data.requires_grad_(True)
+        
+        # Run Langevin dynamics to get samples from the model
+        for k in range(n_langevin_steps):
+            # Get energy of negative samples
+            neg_output = model(torch.cat([pos_data, neg_data], dim=1), electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale)
+            neg_energy = neg_output[:, 1:].mean()
+            
+            # Compute gradients
+            neg_grad = torch.autograd.grad(neg_energy, neg_data)[0]
+            
+            # Update negative samples with Langevin dynamics
+            noise = torch.randn_like(neg_data) * noise_scale
+            neg_data.data += -0.5 * langevin_stepsize * neg_grad + noise
+            print(f"Langevin step {k+1} of {n_langevin_steps}, neg_grad norm: {torch.norm(neg_grad).item()}")
+            
+        # Combine positive and negative samples
+        full_data = torch.cat([pos_data, neg_data.detach()], dim=1)
+        
+        # Get model output on full data
+        output = model(full_data, electrode_emb / torch.norm(electrode_emb) * electrode_embeddings_scale)
+        
+        # Compute loss (maximize positive energy, minimize negative energy)
+        loss = output[:, 0].mean() - output[:, 1:].mean() + L2_output_penalty * (output**2).mean()
         loss_store.append(loss.item())
         pos_energy = output[:, 0:1].mean()
         neg_energy = output[:, 1:].mean()
@@ -105,13 +137,12 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         neg_energy_store.append(neg_energy.item())
         emb_scale_store.append(electrode_embeddings_scale.item())
         print(f"Batch {i}  loss: {loss.item():.4f}, pos_energy: {pos_energy.item():.4f}, neg_energy: {neg_energy.item():.4f}, emb_scale: {electrode_embeddings_scale.item():.4f}")
-        #print(output[0, 0:2, :, 0, 0])
 
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-        # Save losses every 100 batches
+        # Save losses every 20 batches
         if (i + 1) % 20 == 0:
             with open(f'training_losses_multisubject.json', 'w') as f:
                 json.dump({'losses': loss_store, 'pos_energy': pos_energy_store, 'neg_energy': neg_energy_store, 'emb_scale': emb_scale_store}, f)
