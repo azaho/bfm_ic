@@ -72,6 +72,52 @@ class BrainTreebankDataLoader:
         self.chunks = []
         self.current_chunk = 0
 
+class DummyDataLoader:
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', batch_size=1):
+        self.subject_id = subject_id
+        self.trial_id = trial_id
+        self.trim_electrodes_to = trim_electrodes_to
+        self.n_time_bins = n_time_bins
+        self.n_freq_features = n_freq_features
+        self.n_electrodes = n_electrodes
+        self.batch_size = batch_size
+
+        # Create random matrix and make it orthogonal using QR decomposition
+        random_matrix = torch.randn(self.n_electrodes, self.n_electrodes)
+        q, r = torch.linalg.qr(random_matrix)
+        self.forward_matrix = q  # q is guaranteed to be orthogonal (rotation matrix)
+        self.forward_matrix = torch.eye(self.n_electrodes, self.n_electrodes)
+
+    def reset(self):
+        pass
+
+    def generate_item(self):
+        # Generate initial random vector
+        x = torch.randn(self.n_electrodes, self.n_freq_features)
+        
+        # Create tensor to store the time series
+        time_series = torch.zeros(1, 1, self.n_electrodes, self.n_time_bins, self.n_freq_features)
+        
+        # Fill first timestep with initial vector
+        time_series[:, 0, :, 0, :] = x
+        
+        # Generate subsequent timesteps by repeatedly applying rotation
+        for t in range(1, self.n_time_bins):
+            x = torch.matmul(self.forward_matrix, x)  # Apply rotation
+            time_series[:, 0, :, t, :] = x
+            
+        return time_series
+
+
+    def get_next_batch(self):
+        batch = torch.zeros((self.batch_size, 1, self.n_electrodes, self.n_time_bins, self.n_freq_features))
+        for i in range(self.batch_size):
+            batch[i, :, :, :, :] = self.generate_item()
+        return batch.to(self.device)
+
+    def __len__(self):
+        return 1000
+
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
 
@@ -88,7 +134,8 @@ electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1))
 
 dataloader_store = []
 for subject_id, trial_id in train_subject_trials:
-    dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
+    #dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
+    dataloader = DummyDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
 optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.00001)
