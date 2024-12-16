@@ -4,15 +4,13 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-trim_electrodes_to = 85 # TODO: make this a variable not always 100
-train_subject_trials = [(2, 4), (1, 1), (3, 1)]
-# trim_electrodes_to = 13 # TODO: make this a variable not always 100
-# train_subject_trials = [(2, 4)]#[(2, 4), (1, 1), (3, 1)]
+trim_electrodes_to = 130 # TODO: make this a variable not always 100
+train_subject_trials = [(2, 4)] #[(2, 4), (1, 1), (3, 1)]
 
 batch_size = 5
 n_electrodes = trim_electrodes_to
 n_freq_features = 37
-n_time_bins = 80
+n_time_bins = 10
 d_model = 120# Assuming this is the model dimension
 n_samples = 1
 n_layers = 5
@@ -28,7 +26,8 @@ class BrainTreebankDataLoader:
         self.current_chunk = 0
         self.chunks = []
         self.batch_size = batch_size
-
+        self.n_time_bins = n_time_bins
+        
         # Load metadata
         metadata_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}.json"
         with open(metadata_path) as f:
@@ -40,6 +39,7 @@ class BrainTreebankDataLoader:
         self.total_samples = self.metadata['total_samples']
         self.n_chunks = self.metadata['n_chunks']
         self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
+        self.n_freq_features = self.metadata['n_freq_features']
 
     def _load_chunk(self, chunk_id):
         chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
@@ -48,16 +48,18 @@ class BrainTreebankDataLoader:
 
     def get_next_batch(self):
         # Remove oldest chunk if we have 5 chunks
-        self.chunks = []
+        self.chunks = self.chunks[self.batch_size:]
             
         # Load next chunk
         while len(self.chunks) < self.batch_size:
-            new_chunk = self._load_chunk(self.current_chunk)
-            self.chunks.insert(0, new_chunk)
+            new_chunk = self._load_chunk(self.current_chunk) # shape: (1, n_electrodes, n_time_bins, n_freq_features)
+            new_chunk = new_chunk.reshape(1, self.n_electrodes, -1, n_time_bins, self.n_freq_features)
+            for i in range(new_chunk.shape[2]):
+                self.chunks.append(new_chunk[:, :, i, :, :])
             self.current_chunk += 1
 
         # Combine chunks
-        data = torch.cat(self.chunks, dim=0).unsqueeze(1)
+        data = torch.cat(self.chunks[0:self.batch_size], dim=0).unsqueeze(1)
         if self.trim_electrodes_to:
             data = data[:, :, :self.trim_electrodes_to, :, :]
         return data.to(self.device)
