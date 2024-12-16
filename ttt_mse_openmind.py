@@ -87,7 +87,7 @@ class DummyDataLoader:
         random_matrix = torch.randn(self.n_electrodes, self.n_electrodes)
         q, r = torch.linalg.qr(random_matrix)
         self.forward_matrix = q  # q is guaranteed to be orthogonal (rotation matrix)
-        self.forward_matrix = torch.eye(self.n_electrodes, self.n_electrodes)
+        #self.forward_matrix = torch.eye(self.n_electrodes, self.n_electrodes)
 
     def reset(self):
         pass
