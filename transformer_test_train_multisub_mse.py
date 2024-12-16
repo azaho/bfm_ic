@@ -94,7 +94,7 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
         
         # Get model output on full data
-        output = model(data[:, :, :, :-1, :], electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale * 10)
+        output = model(data[:, :, :, :-1, :], electrode_emb)
         
         # Compute loss (maximize positive energy, minimize negative energy)
         loss = ((output-data[:, :, :, 1:, :])**2).mean()
