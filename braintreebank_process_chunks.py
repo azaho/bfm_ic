@@ -204,14 +204,14 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     n_freq_features = data_chunk.shape[2]
     with open(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}.json', 'w') as f:
         json.dump(
-            {'subject_id': sub_id, 
-             'trial_id': trial_id, 
+            {'subject_id': int(sub_id), 
+             'trial_id': int(trial_id), 
              'laplacian_rereferenced': laplacian_rereferenced,
-             'n_electrodes': n_electrodes,
-             'n_time_bins': n_time_bins,
-             'n_freq_features': n_freq_features,
-             'total_samples': total_samples,
-             'n_chunks': len(windows_range)}, f)
+             'n_electrodes': int(n_electrodes),
+             'n_time_bins': int(n_time_bins),
+             'n_freq_features': int(n_freq_features),
+             'total_samples': int(total_samples),
+             'n_chunks': int(len(windows_range))}, f)
     if verbose: print(f"Saved metadata for subject {sub_id} trial {trial_id}")
 
 if __name__ == "__main__":

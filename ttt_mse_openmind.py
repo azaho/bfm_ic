@@ -137,6 +137,7 @@ class DummyDataLoader:
 # Create electrode embeddings as part of the model
 model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_features, n_time_bins=n_time_bins,
                  d_model=d_model, n_heads=n_heads, n_layers=n_layers, dropout=0.2, dim_output=dim_output).to(device)
+print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
 electrode_emb_store = []
 for i in range(len(train_subject_trials)):
