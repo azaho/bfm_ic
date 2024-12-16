@@ -83,11 +83,15 @@ class DummyDataLoader:
         self.batch_size = batch_size
         self.device = device
 
-        # Create random matrix and make it orthogonal using QR decomposition
-        random_matrix = torch.randn(self.n_electrodes, self.n_electrodes)
-        q, r = torch.linalg.qr(random_matrix)
-        self.forward_matrix = q  # q is guaranteed to be orthogonal (rotation matrix)
-        #self.forward_matrix = torch.eye(self.n_electrodes, self.n_electrodes)
+        # Create block diagonal matrix with 2x2 rotation blocks
+        self.forward_matrix = torch.eye(self.n_electrodes, self.n_electrodes)
+        for i in range(0, self.n_electrodes-1, 2):
+            # Create random 2x2 rotation matrix for each block
+            theta = torch.rand(1) * 2 * np.pi
+            block = torch.tensor([[torch.cos(theta), -torch.sin(theta)],
+                                [torch.sin(theta), torch.cos(theta)]])
+            self.forward_matrix[i:i+2, i:i+2] = block
+        # Handle odd number of electrodes by leaving last 1x1 block as identity
 
     def reset(self):
         pass
@@ -139,7 +143,7 @@ for subject_id, trial_id in train_subject_trials:
     dataloader = DummyDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
-optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.01)
+optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.001)
 
 loss_store = []
 emb_scale_store = []
