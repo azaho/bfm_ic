@@ -139,7 +139,7 @@ for subject_id, trial_id in train_subject_trials:
     dataloader = DummyDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
-optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.0001)
+optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.01)
 
 loss_store = []
 emb_scale_store = []
