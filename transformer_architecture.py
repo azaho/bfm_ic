@@ -180,7 +180,7 @@ class RoPEMultiheadAttention(nn.Module):
         # We can do this by using unsqueeze and relying on broadcasting:
         causal_mask = self.causal_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
         # Create time equality mask: True where time indices are equal
-        time_eq_mask = torch.eye(n_time_bins, dtype=torch.bool)[None, None, :, None, None, :].to(self.device)  # (1,1,n_time_bins,1,1,n_time_bins)
+        time_eq_mask = torch.eye(n_time_bins, dtype=torch.bool)[None, None, :, None, None, :].to(attn.device)  # (1,1,n_time_bins,1,1,n_time_bins)
         
         # electrode_mask: (n_electrodes, n_electrodes), mask same electrode attention
         # Only apply electrode mask where times are equal
