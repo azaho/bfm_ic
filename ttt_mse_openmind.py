@@ -67,6 +67,10 @@ class BrainTreebankDataLoader:
 
     def __len__(self):
         return (self.n_chunks-1)*(self.n_time_bins//n_time_bins)//self.batch_size
+    
+    def reset(self):
+        self.chunks = []
+        self.current_chunk = 0
 
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
@@ -87,7 +91,7 @@ for subject_id, trial_id in train_subject_trials:
     dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
-optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.0001)
+optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.01)
 
 loss_store = []
 emb_scale_store = []
@@ -101,6 +105,7 @@ for epoch_i in range(n_epochs):
     for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         subject_i += 1
         print(f"Subject {subject_i+1} of {len(train_subject_trials)} ({train_subject_trials[subject_i]})")
+        dataloader.reset()
         for i in range(len(dataloader)):
             overall_batch_i += 1
             data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
@@ -125,4 +130,4 @@ for epoch_i in range(n_epochs):
                 with open(f'training_losses_multisubject_mse.json', 'w') as f:
                     json.dump({'losses': loss_store, 'emb_scale': emb_scale_store}, f)
                 torch.save(model.state_dict(), f'model_state_dict_multisubject_mse.pth')
-                print(f"Saved losses and model after batch {i+1}")
+                print(f"Saved losses and model after batch {overall_batch_i+1}")
