@@ -39,7 +39,7 @@ class BrainTreebankDataLoader:
         self.total_samples = self.metadata['total_samples']
         self.n_chunks = self.metadata['n_chunks']
         self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
-        self.n_freq_features = self.metadata['n_freq_features']
+        self.n_freq_features = self.metadata['n_freq_features'] if 'n_freq_features' in self.metadata else n_freq_features
 
     def _load_chunk(self, chunk_id):
         chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
