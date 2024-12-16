@@ -7,14 +7,14 @@ print(f"Using device: {device}")
 trim_electrodes_to = 130 # TODO: make this a variable not always 100
 train_subject_trials = [(2, 4)] #[(2, 4), (1, 1), (3, 1)]
 
-n_epochs = 20
+n_epochs = 200
 batch_size = 64
 n_electrodes = trim_electrodes_to
 n_freq_features = 37
 n_time_bins = 10
 d_model = 120# Assuming this is the model dimension
 n_samples = 1
-n_layers = 5
+n_layers = 10
 n_heads = 6
 dim_output = n_freq_features
 
@@ -147,8 +147,8 @@ electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1))
 
 dataloader_store = []
 for subject_id, trial_id in train_subject_trials:
-    #dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
-    dataloader = DummyDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
+    dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
+    #dataloader = DummyDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
 optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.001)
