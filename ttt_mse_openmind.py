@@ -93,6 +93,14 @@ class DummyDataLoader:
             self.forward_matrix[i:i+2, i:i+2] = block
         # Handle odd number of electrodes by leaving last 1x1 block as identity
 
+        # Create random orthogonal matrix using QR decomposition
+        random_matrix = torch.randn(self.n_electrodes, self.n_electrodes)
+        q, r = torch.linalg.qr(random_matrix)
+        # Make it a proper rotation matrix by ensuring determinant is 1
+        d = torch.diag(r)
+        ph = d / torch.abs(d)
+        self.forward_matrix = q * ph.reshape(1, -1)
+
     def reset(self):
         pass
 
