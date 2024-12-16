@@ -110,4 +110,5 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         if (i + 1) % 20 == 0:
             with open(f'training_losses_multisubject_mse.json', 'w') as f:
                 json.dump({'losses': loss_store, 'emb_scale': emb_scale_store}, f)
-            print(f"Saved losses and energies after batch {i+1}")
+            torch.save(model.state_dict(), f'model_state_dict_multisubject_mse.pth')
+            print(f"Saved losses and model after batch {i+1}")
