@@ -81,6 +81,7 @@ class DummyDataLoader:
         self.n_freq_features = n_freq_features
         self.n_electrodes = n_electrodes
         self.batch_size = batch_size
+        self.device = device
 
         # Create random matrix and make it orthogonal using QR decomposition
         random_matrix = torch.randn(self.n_electrodes, self.n_electrodes)
