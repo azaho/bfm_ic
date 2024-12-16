@@ -18,13 +18,14 @@ n_layers = 5
 n_heads = 6
 
 class BrainTreebankDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda'):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', load_samples_at_a_time=1):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
         self.current_chunk = 0
         self.chunks = []
+        self.load_samples_at_a_time = load_samples_at_a_time
 
         # Load metadata
         metadata_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}.json"
@@ -45,11 +46,11 @@ class BrainTreebankDataLoader:
 
     def get_next_batch(self):
         # Remove oldest chunk if we have 5 chunks
-        if len(self.chunks) == n_samples:
+        if len(self.chunks) == self.load_samples_at_a_time:
             self.chunks.pop()
             
         # Load next chunk
-        while len(self.chunks) < n_samples:
+        while len(self.chunks) < self.load_samples_at_a_time:
             new_chunk = self._load_chunk(self.current_chunk)
             self.chunks.insert(0, new_chunk)
             self.current_chunk += 1
@@ -61,25 +62,25 @@ class BrainTreebankDataLoader:
         return data.to(self.device)
 
     def __len__(self):
-        return self.n_chunks-n_samples+1
+        return self.n_chunks-self.load_samples_at_a_time+1
 
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
 
 # Create electrode embeddings as part of the model
 model = SEEGTransformer(n_electrodes=n_electrodes, n_freq_features=n_freq_features, n_time_bins=n_time_bins,
-                 d_model=d_model, n_heads=n_heads, n_layers=n_layers, dropout=0.5).to(device)
+                 d_model=d_model, n_heads=n_heads, n_layers=n_layers, dropout=0.2).to(device)
 
 electrode_emb_store = []
 for i in range(len(train_subject_trials)):
     subject_id, trial_id = train_subject_trials[i]
     electrode_emb = torch.nn.Parameter(torch.randn(n_electrodes, d_model).to(device) / np.sqrt(d_model))
     electrode_emb_store.append(electrode_emb)
-electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(1.0))
+electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1))
 
 dataloader_store = []
 for subject_id, trial_id in train_subject_trials:
-    dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device)
+    dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, load_samples_at_a_time=n_samples)
     dataloader_store.append(dataloader)
 
 optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.001, weight_decay=0.01)
@@ -122,7 +123,7 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
             neg_data = neg_data.detach().to(device).requires_grad_(True)
             
             # Get energy of negative samples
-            neg_output = model(torch.cat([pos_data, neg_data], dim=1), electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale)
+            neg_output = model(torch.cat([pos_data, neg_data], dim=1), electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale * 10)
             neg_energy = neg_output[:, 1:].mean()
             
             # Compute gradients
@@ -141,7 +142,7 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         full_data = torch.cat([pos_data, neg_data.detach()], dim=1).to(device)
         
         # Get model output on full data
-        output = model(full_data, electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale)
+        output = model(full_data, electrode_emb / (torch.norm(electrode_emb)+1e-3) * electrode_embeddings_scale * 10)
         
         # Compute loss (maximize positive energy, minimize negative energy)
         loss = output[:, 0].mean() - output[:, 1:].mean() + L2_output_penalty * (output**2).mean()
@@ -151,7 +152,7 @@ for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         pos_energy_store.append(pos_energy.item())
         neg_energy_store.append(neg_energy.item())
         emb_scale_store.append(electrode_embeddings_scale.item())
-        print(f"Batch {i}  loss: {loss.item():.4f}, pos_energy: {pos_energy.item():.4f}, neg_energy: {neg_energy.item():.4f}, emb_scale: {electrode_embeddings_scale.item():.4f}")
+        print(f"Batch {i}  loss: {loss.item():.4f}, pos_energy: {pos_energy.item():.4f}, neg_energy: {neg_energy.item():.4f}, emb_scale: {electrode_embeddings_scale.item()*10:.4f}")
 
         loss.backward()
         optimizer.step()

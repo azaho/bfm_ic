@@ -4,7 +4,7 @@ import math
 
 class SEEGTransformer(nn.Module):
     def __init__(self, n_electrodes=130, n_freq_features=37, n_time_bins=160, 
-                 d_model=128, n_heads=8, n_layers=6, dropout=0.1):
+                 d_model=128, n_heads=8, n_layers=6, dropout=0.1, dim_output=1):
         super().__init__()
         
         # Project frequency features to model dimension
@@ -13,6 +13,7 @@ class SEEGTransformer(nn.Module):
         # RoPE parameters
         self.max_seq_len = n_time_bins
         self.d_model = d_model
+        self.dim_output = dim_output
         
         # Custom transformer encoder that applies RoPE in each layer
         self.layers = nn.ModuleList([
@@ -24,7 +25,7 @@ class SEEGTransformer(nn.Module):
                 batch_first=True
             ) for _ in range(n_layers)
         ] + [
-            nn.Linear(d_model, 1) # output layer to transform to 1D Energy output
+            nn.Linear(d_model, dim_output) # output layer to transform to 1D Energy output
         ])
 
     def forward(self, x, electrode_emb):
