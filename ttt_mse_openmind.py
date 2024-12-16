@@ -8,7 +8,7 @@ trim_electrodes_to = 130 # TODO: make this a variable not always 100
 train_subject_trials = [(2, 4)] #[(2, 4), (1, 1), (3, 1)]
 
 n_epochs = 20
-batch_size = 5
+batch_size = 64
 n_electrodes = trim_electrodes_to
 n_freq_features = 37
 n_time_bins = 10
