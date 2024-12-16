@@ -7,6 +7,7 @@ print(f"Using device: {device}")
 trim_electrodes_to = 130 # TODO: make this a variable not always 100
 train_subject_trials = [(2, 4)] #[(2, 4), (1, 1), (3, 1)]
 
+n_epochs = 20
 batch_size = 5
 n_electrodes = trim_electrodes_to
 n_freq_features = 37
@@ -90,28 +91,38 @@ optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [e
 
 loss_store = []
 emb_scale_store = []
+inner_batch_i_store = []
+subject_trial_i_store = []
 
 # Example usage - get first 5 batches
-for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
-    for i in range(len(dataloader)):
-        data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
-        
-        # Get model output on full data
-        output = model(data[:, :, :, :-1, :], electrode_emb)
-        
-        # Compute loss (maximize positive energy, minimize negative energy)
-        loss = ((output-data[:, :, :, 1:, :])**2).mean()
-        loss_store.append(loss.item())
-        emb_scale_store.append(electrode_embeddings_scale.item())
-        print(f"Batch {i}  loss: {loss.item():.4f}, emb_scale: {electrode_embeddings_scale.item()*10:.4f}")
+overall_batch_i = 0
+for epoch_i in range(n_epochs):
+    subject_i = -1  
+    for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
+        subject_i += 1
+        for i in range(len(dataloader)):
+            overall_batch_i += 1
+            data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
+            
+            # Get model output on full data
+            output = model(data[:, :, :, :-1, :], electrode_emb)
+            
+            # Compute loss (maximize positive energy, minimize negative energy)
+            loss = ((output-data[:, :, :, 1:, :])**2).mean()
+            print(f"Batch {overall_batch_i+1}  loss: {loss.item():.4f}, emb_scale: {electrode_embeddings_scale.item()*10:.4f}")
+            
+            loss_store.append(loss.item())
+            emb_scale_store.append(electrode_embeddings_scale.item())
+            inner_batch_i_store.append(i)
+            subject_trial_i_store.append(train_subject_trials[subject_i])
 
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        # Save losses every 20 batches
-        if (i + 1) % 20 == 0:
-            with open(f'training_losses_multisubject_mse.json', 'w') as f:
-                json.dump({'losses': loss_store, 'emb_scale': emb_scale_store}, f)
-            torch.save(model.state_dict(), f'model_state_dict_multisubject_mse.pth')
-            print(f"Saved losses and model after batch {i+1}")
+            # Save losses every 20 batches
+            if (overall_batch_i+1) % 20 == 0:
+                with open(f'training_losses_multisubject_mse.json', 'w') as f:
+                    json.dump({'losses': loss_store, 'emb_scale': emb_scale_store}, f)
+                torch.save(model.state_dict(), f'model_state_dict_multisubject_mse.pth')
+                print(f"Saved losses and model after batch {i+1}")
