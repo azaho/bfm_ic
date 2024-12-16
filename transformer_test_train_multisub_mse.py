@@ -4,8 +4,10 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
-trim_electrodes_to = 13 # TODO: make this a variable not always 100
-train_subject_trials = [(2, 4)]#[(2, 4), (1, 1), (3, 1)]
+trim_electrodes_to = 85 # TODO: make this a variable not always 100
+train_subject_trials = [(2, 4), (1, 1), (3, 1)]
+# trim_electrodes_to = 13 # TODO: make this a variable not always 100
+# train_subject_trials = [(2, 4)]#[(2, 4), (1, 1), (3, 1)]
 
 batch_size = 5
 n_electrodes = trim_electrodes_to
@@ -13,7 +15,6 @@ n_freq_features = 37
 n_time_bins = 80
 d_model = 120# Assuming this is the model dimension
 n_samples = 1
-n_neg_samples = 4
 n_layers = 5
 n_heads = 6
 dim_output = n_freq_features
@@ -83,7 +84,7 @@ for subject_id, trial_id in train_subject_trials:
     dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=trim_electrodes_to, device=device, batch_size=batch_size)
     dataloader_store.append(dataloader)
 
-optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.001, weight_decay=0.01)
+optimizer = torch.optim.Adam(list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale], lr=0.0001, weight_decay=0.01)
 
 loss_store = []
 emb_scale_store = []
