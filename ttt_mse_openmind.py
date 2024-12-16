@@ -52,7 +52,7 @@ class BrainTreebankDataLoader:
         self.chunks = self.chunks[self.batch_size:]
             
         # Load next chunk
-        while len(self.chunks) < self.batch_size:
+        while (len(self.chunks) < self.batch_size) and (self.current_chunk < self.n_chunks):
             new_chunk = self._load_chunk(self.current_chunk) # shape: (1, n_electrodes, n_time_bins, n_freq_features)
             new_chunk = new_chunk.reshape(1, self.n_electrodes, -1, n_time_bins, self.n_freq_features)
             for i in range(new_chunk.shape[2]):
@@ -66,7 +66,7 @@ class BrainTreebankDataLoader:
         return data.to(self.device)
 
     def __len__(self):
-        return self.n_chunks//self.batch_size
+        return self.n_chunks*(self.n_time_bins//n_time_bins)//self.batch_size
 
 # Initialize model and dataloader
 #torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
@@ -100,6 +100,7 @@ for epoch_i in range(n_epochs):
     subject_i = -1  
     for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
         subject_i += 1
+        print(f"Subject {subject_i+1} of {len(train_subject_trials)} ({train_subject_trials[subject_i]})")
         for i in range(len(dataloader)):
             overall_batch_i += 1
             data = dataloader.get_next_batch() # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
@@ -107,7 +108,6 @@ for epoch_i in range(n_epochs):
             # Get model output on full data
             output = model(data[:, :, :, :-1, :], electrode_emb)
             
-            # Compute loss (maximize positive energy, minimize negative energy)
             loss = ((output-data[:, :, :, 1:, :])**2).mean()
             print(f"Batch {overall_batch_i+1}  loss: {loss.item():.4f}, emb_scale: {electrode_embeddings_scale.item()*10:.4f}")
             
