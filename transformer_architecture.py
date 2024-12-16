@@ -179,8 +179,13 @@ class RoPEMultiheadAttention(nn.Module):
         # Expand causal_mask to match (n_samples_q, n_electrodes, n_time_bins, n_samples_k, n_electrodes, n_time_bins)
         # We can do this by using unsqueeze and relying on broadcasting:
         causal_mask = self.causal_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
+        # Create time equality mask: True where time indices are equal
+        time_eq_mask = torch.eye(n_time_bins, dtype=torch.bool)[None, None, :, None, None, :]  # (1,1,n_time_bins,1,1,n_time_bins)
+        
         # electrode_mask: (n_electrodes, n_electrodes), mask same electrode attention
+        # Only apply electrode mask where times are equal
         electrode_mask = self.electrode_mask[None, :n_electrodes, None, None, :n_electrodes, None]  # (1, n_electrodes, 1, 1, n_electrodes, 1)
+        electrode_mask = electrode_mask & time_eq_mask  # Broadcasting will handle expansion
 
         # Both masks are True where we must mask (i.e. set to -inf).
         # Combine them with logical_or:
