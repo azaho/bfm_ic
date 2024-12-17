@@ -5,7 +5,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 training_config = {
-    'n_epochs': 200,
+    'n_epochs': 10,
+    'save_network_every_n_epochs': 1,
+
     'batch_size': 116,
     'train_subject_trials': [(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': 0.001,
@@ -200,14 +202,21 @@ if __name__ == "__main__":
                     json_transformer_config['dtype'] = str(transformer_config['dtype'])
                     json_transformer_config['device'] = str(transformer_config['device'])
                     
-                    with open(f'{dir_name}/training_losses_multisubject_mse.json', 'w') as f:
+                    with open(f'{dir_name}/metadata.json', 'w') as f:
                         json.dump({
                             'transformer_config': json_transformer_config,
                             'training_config': training_config,
+                            }, f, indent=4)
+                    with open(f'{dir_name}/training_dynamics.json', 'w') as f:
+                        json.dump({
                             'losses': loss_store,
                             'emb_scale': emb_scale_store,
                             'inner_batch_i': inner_batch_i_store,
                             'subject_trial_i': subject_trial_i_store,
                             }, f, indent=4)
-                    torch.save(model.state_dict(), f'{dir_name}/model_state_dict_multisubject_mse.pth')
+                    torch.save(model.state_dict(), f'{dir_name}/model_state_dict.pth')
                     print(f"Saved losses and model after batch {overall_batch_i+1}")
+        # Save model for this epoch
+        if (epoch_i + 1) % training_config['save_network_every_n_epochs'] == 0:
+            torch.save(model.state_dict(), f'{dir_name}/model_state_dict_epoch{epoch_i+1}.pth')
+            print(f"Saved model checkpoint for epoch {epoch_i+1}")
