@@ -195,11 +195,16 @@ if __name__ == "__main__":
 
                 # Save losses every 20 batches
                 if (overall_batch_i+1) % 20 == 0:
+                    # Convert dtype and device to strings for JSON serialization
+                    json_transformer_config = transformer_config.copy()
+                    json_transformer_config['dtype'] = str(transformer_config['dtype'])
+                    json_transformer_config['device'] = str(transformer_config['device'])
+                    
                     with open(f'{dir_name}/training_losses_multisubject_mse.json', 'w') as f:
                         json.dump({
-                            'transformer_config': transformer_config,
+                            'transformer_config': json_transformer_config,
                             'training_config': training_config,
-                            'losses': loss_store, 
+                            'losses': loss_store,
                             'emb_scale': emb_scale_store,
                             'inner_batch_i': inner_batch_i_store,
                             'subject_trial_i': subject_trial_i_store,
