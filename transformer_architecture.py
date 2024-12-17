@@ -180,6 +180,7 @@ class RoPEMultiheadAttention(nn.Module):
         causal_mask = self.causal_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
         electrode_time_mask = self.electrode_time_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
         electrode_mask = self.electrode_mask[None, :n_electrodes, None, None, :n_electrodes, None]  # (1, n_electrodes, 1, 1, n_electrodes, 1)
+        print(causal_mask.device, electrode_mask.device, electrode_time_mask.device)
         electrode_mask = electrode_mask & electrode_time_mask  # Broadcasting will handle expansion
 
         combined_mask = causal_mask | electrode_mask  # relies on broadcasting
