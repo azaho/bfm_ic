@@ -1,4 +1,4 @@
-import torch, numpy as np, json, os
+import torch, numpy as np, json, os, time
 from transformer_architecture import SEEGTransformer
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -168,6 +168,7 @@ if __name__ == "__main__":
     inner_batch_i_store = []
     subject_trial_i_store = []
 
+    training_start_time = time.time()
     overall_batch_i = -1
     for epoch_i in range(training_config['n_epochs']):
         subject_i = -1  
@@ -183,7 +184,24 @@ if __name__ == "__main__":
                 output = model(data[:, :, :, :-1, :], electrode_emb)
                 
                 loss = ((output-data[:, :, :, 1:, :])**2).mean()
-                print(f"Batch {overall_batch_i+1}  loss: {loss.item():.4f}, emb_scale: {electrode_embeddings_scale.item()*10:.4f}")
+                
+                # Calculate time remaining
+                steps_done = overall_batch_i + 1
+                steps_total = training_config['total_steps']
+                steps_remaining = steps_total - steps_done
+                time_per_step = (time.time() - training_start_time) / steps_done if steps_done > 0 else 0
+                time_remaining = time_per_step * steps_remaining
+                
+                # Convert to hours:minutes:seconds
+                hours = int(time_remaining // 3600)
+                minutes = int((time_remaining % 3600) // 60)
+                seconds = int(time_remaining % 60)
+                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                
+                # Get GPU memory usage
+                gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
+                
+                print(f"Batch {overall_batch_i+1}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
                 
                 loss_store.append(loss.item())
                 emb_scale_store.append(electrode_embeddings_scale.item())

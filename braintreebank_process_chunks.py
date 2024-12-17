@@ -213,6 +213,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
              'total_samples': int(total_samples),
              'n_chunks': int(len(windows_range))}, f)
     if verbose: print(f"Saved metadata for subject {sub_id} trial {trial_id}")
+    del subject
 
 if __name__ == "__main__":
     root_dir = ""
