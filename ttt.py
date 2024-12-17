@@ -114,7 +114,7 @@ if __name__ == "__main__":
     os.makedirs(dir_name, exist_ok=True)
 
     # Create electrode embeddings as part of the model
-    model = SEEGTransformer(config=transformer_config).to(device, dtype=transformer_config['dtype'])
+    model = SEEGTransformer(config=transformer_config, device=device).to(device, dtype=transformer_config['dtype'])
     num_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     transformer_config['n_params'] = num_model_params
     

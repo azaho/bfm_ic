@@ -42,8 +42,8 @@ class SEEGTransformer(nn.Module):
     def forward(self, x, electrode_emb):
         # x shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
         # electrode_emb shape: (n_electrodes, d_model)
-        x = x.to(dtype=self.dtype)
-        electrode_emb = electrode_emb.to(dtype=self.dtype)
+        #x = x.to(dtype=self.dtype)
+        #electrode_emb = electrode_emb.to(dtype=self.dtype)
         
         batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features = x.shape
         # Project frequency features
@@ -67,7 +67,8 @@ class SEEGTransformer(nn.Module):
     def _make_causal_mask(self):
         # causal_mask shape: (seq_len, seq_len) with True for disallowed positions
         causal_mask = torch.triu(torch.ones(self.config['max_n_time_bins'], self.config['max_n_time_bins'], dtype=torch.bool, device=self.device), diagonal=1)
-        return causal_mask.to(device=self.device)
+        print(self.device)
+        return causal_mask
     def _make_electrode_mask(self):
         # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)
         indices = torch.arange(self.config['max_n_electrodes'], device=self.device)
@@ -82,7 +83,7 @@ class SEEGTransformer(nn.Module):
             electrode_time_mask = torch.eye(self.config['max_n_time_bins'], dtype=torch.bool, device=self.device)
         else:
             raise ValueError(f"Invalid mask type: {self.mask_type}")
-        return electrode_mask.to(device=self.device), electrode_time_mask.to(device=self.device)
+        return electrode_mask, electrode_time_mask
 
 class RoPETransformerEncoderLayer(nn.Module):
     def __init__(self, precomputed_masks, config=transformer_config):
@@ -180,7 +181,7 @@ class RoPEMultiheadAttention(nn.Module):
         causal_mask = self.causal_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
         electrode_time_mask = self.electrode_time_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
         electrode_mask = self.electrode_mask[None, :n_electrodes, None, None, :n_electrodes, None]  # (1, n_electrodes, 1, 1, n_electrodes, 1)
-        print(causal_mask.device, electrode_mask.device, electrode_time_mask.device)
+        #print(causal_mask.device, electrode_mask.device, electrode_time_mask.device)
         electrode_mask = electrode_mask & electrode_time_mask  # Broadcasting will handle expansion
 
         combined_mask = causal_mask | electrode_mask  # relies on broadcasting
