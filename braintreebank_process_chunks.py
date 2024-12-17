@@ -10,6 +10,8 @@ import numpy as np
 import seaborn as sns
 import argparse
 
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
 class Subject:
     def __init__(self, subject_id, sampling_rate=2048):
         self.subject_id = subject_id
@@ -144,6 +146,9 @@ class Subject:
     def get_spectrogram_normalizing_params(self, electrode_label, trial_id, laplacian_rereferenced=False, cache=True):
         f, t, Sxx = self.get_spectrogram(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=cache)
         return np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
+    def close_all_files(self):
+        for h5f in self.h5f_files.values():
+            h5f.close()
 
 def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True, global_per_electrode_normalizing_params=True):
     if window_length is None: window_length = nperseg * 8 * 10 # 10 seconds
@@ -213,6 +218,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
              'total_samples': int(total_samples),
              'n_chunks': int(len(windows_range))}, f)
     if verbose: print(f"Saved metadata for subject {sub_id} trial {trial_id}")
+    subject.close_all_files()
     del subject
 
 if __name__ == "__main__":
