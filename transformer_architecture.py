@@ -67,7 +67,6 @@ class SEEGTransformer(nn.Module):
     def _make_causal_mask(self):
         # causal_mask shape: (seq_len, seq_len) with True for disallowed positions
         causal_mask = torch.triu(torch.ones(self.config['max_n_time_bins'], self.config['max_n_time_bins'], dtype=torch.bool, device=self.device), diagonal=1)
-        print(self.device)
         return causal_mask
     def _make_electrode_mask(self):
         # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)

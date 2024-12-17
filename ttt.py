@@ -6,7 +6,7 @@ print(f"Using device: {device}")
 
 training_config = {
     'n_epochs': 200,
-    'batch_size': 64,
+    'batch_size': 116,
     'train_subject_trials': [(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': 0.001,
     'lr_min': 0.0001,
@@ -22,12 +22,12 @@ transformer_config = {
     'max_n_electrodes': 130,
     'n_freq_features': 37,
     'max_n_time_bins': 10,
-    'd_model': 120,
-    'n_heads': 6,
-    'n_layers': 5,
+    'd_model': 256,
+    'n_heads': 8,
+    'n_layers': 10,
     'dropout': 0.1,
     'mask_type': 'mask-out-one',
-    'dtype': torch.float32,
+    'dtype': torch.bfloat16,
     'device': device,
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
