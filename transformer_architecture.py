@@ -67,7 +67,7 @@ class SEEGTransformer(nn.Module):
     def _make_causal_mask(self):
         # causal_mask shape: (seq_len, seq_len) with True for disallowed positions
         causal_mask = torch.triu(torch.ones(self.config['max_n_time_bins'], self.config['max_n_time_bins'], dtype=torch.bool, device=self.device), diagonal=1)
-        return causal_mask
+        return causal_mask.to(device=self.device)
     def _make_electrode_mask(self):
         # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)
         indices = torch.arange(self.config['max_n_electrodes'], device=self.device)
@@ -82,7 +82,7 @@ class SEEGTransformer(nn.Module):
             electrode_time_mask = torch.eye(self.config['max_n_time_bins'], dtype=torch.bool, device=self.device)
         else:
             raise ValueError(f"Invalid mask type: {self.mask_type}")
-        return electrode_mask, electrode_time_mask
+        return electrode_mask.to(device=self.device), electrode_time_mask.to(device=self.device)
 
 class RoPETransformerEncoderLayer(nn.Module):
     def __init__(self, precomputed_masks, config=transformer_config):
