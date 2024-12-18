@@ -243,7 +243,9 @@ if __name__ == "__main__":
                     json_transformer_config = transformer_config.copy()
                     json_transformer_config['dtype'] = str(transformer_config['dtype'])
                     json_transformer_config['device'] = str(transformer_config['device'])
-                    
+                    json_training_config = training_config.copy()
+                    json_training_config['random_seed'] = str(training_config['random_seed'])
+
                     with open(f'{dir_name}/metadata.json', 'w') as f:
                         json.dump({
                             'transformer_config': json_transformer_config,
