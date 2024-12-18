@@ -1,19 +1,38 @@
 import torch, numpy as np, json, os, time
 from transformer_architecture import SEEGTransformer
+import argparse
+
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 
+args = argparse.Namespace()
+args.lrmax = 0.001
+args.lrmin = 0.001
+args.bs = 116
+args.nl = 10
+args.dm = 256
+args.mt = 'mask-out-one'
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lrmax', type=float, default=0.001, help='Maximum learning rate')
+    parser.add_argument('--lrmin', type=float, default=0.001, help='Minimum learning rate') 
+    parser.add_argument('--bs', type=int, default=116, help='Batch size')
+    parser.add_argument('--nl', type=int, default=10, help='Number of transformer layers')
+    parser.add_argument('--dm', type=int, default=256, help='Model dimension')
+    parser.add_argument('--mt', type=str, default='mask-out-one', help='Mask type')
+    args = parser.parse_args()
+
 training_config = {
     'n_epochs': 4,
     'save_network_every_n_epochs': 1,
 
-    'batch_size': 116,
+    'batch_size': args.bs,
     'train_subject_trials': all_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
-    'lr_max': 0.001,
-    'lr_min': 0.001,
+    'lr_max': args.lrmax,
+    'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
     'lr_warmup_steps': 100,
     'weight_decay': 0.001,
@@ -26,11 +45,11 @@ transformer_config = {
     'max_n_electrodes': 130,
     'n_freq_features': 37,
     'max_n_time_bins': 10,
-    'd_model': 256,
+    'd_model': args.dm,
     'n_heads': 8,
-    'n_layers': 10,
+    'n_layers': args.nl,
     'dropout': 0.1,
-    'mask_type': 'mask-out-one',
+    'mask_type': args.mt,
     'dtype': torch.bfloat16,
     'device': device,
 }
