@@ -143,23 +143,24 @@ if __name__ == "__main__":
     
     print(f"Number of model parameters: {num_model_params}")
 
+    dataloader_store = []
+    for subject_id, trial_id in training_config['train_subject_trials']:
+        dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=transformer_config['max_n_electrodes'], device=device)
+        dataloader_store.append(dataloader)
+
     subject_electrode_emb_store = {}
     electrode_emb_store = []
     for i in range(len(training_config['train_subject_trials'])):
         subject_id, trial_id = training_config['train_subject_trials'][i]
         if subject_id not in subject_electrode_emb_store:
-            subject_electrode_emb_store[subject_id] = torch.nn.Parameter(torch.randn(transformer_config['max_n_electrodes'], transformer_config['d_model']).to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model']))
+            subject_electrode_emb_store[subject_id] = torch.nn.Parameter(torch.randn(dataloader_store[i].n_electrodes, transformer_config['d_model']).to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model']))
         electrode_emb_store.append(subject_electrode_emb_store[subject_id])
     electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
     num_emb_params = sum(p.numel() for p in electrode_emb_store + [electrode_embeddings_scale])
     transformer_config['n_emb_params'] = num_emb_params
     print(f"Number of electrode embedding parameters: {num_emb_params}")
     
-    dataloader_store = []
-    for subject_id, trial_id in training_config['train_subject_trials']:
-        dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=transformer_config['max_n_electrodes'], device=device)
-        dataloader_store.append(dataloader)
-    total_steps = training_config['n_epochs'] * dataloader_store[0].length(training_config['batch_size'])
+    total_steps = training_config['n_epochs'] * np.sum([dataloader.length(training_config['batch_size']) for dataloader in dataloader_store])
     training_config['total_steps'] = total_steps
     print(f"Total steps: {total_steps}")
     if 'lr_warmup_steps' in training_config:
