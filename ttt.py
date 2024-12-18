@@ -9,16 +9,16 @@ print(f"Using device: {device}")
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 
 args = argparse.Namespace()
-args.lrmax = 0.001
-args.lrmin = 0.001
+args.lrmax = 0.0001
+args.lrmin = 0.0001
 args.bs = 72
 args.nl = 10
 args.dm = 256
 args.mt = 'mask-out-one'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lrmax', type=float, default=0.001, help='Maximum learning rate')
-    parser.add_argument('--lrmin', type=float, default=0.001, help='Minimum learning rate') 
+    parser.add_argument('--lrmax', type=float, default=0.0001, help='Maximum learning rate')
+    parser.add_argument('--lrmin', type=float, default=0.0001, help='Minimum learning rate') 
     parser.add_argument('--bs', type=int, default=72, help='Batch size')
     parser.add_argument('--nl', type=int, default=10, help='Number of transformer layers')
     parser.add_argument('--dm', type=int, default=256, help='Model dimension')
