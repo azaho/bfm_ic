@@ -15,4 +15,4 @@ conda activate venv
 #index=$SLURM_ARRAY_TASK_ID
 #n_top_pc_llm_index=$((index % 4))
 
-python transformer_test_train_multisub.py
+python ttt.py
