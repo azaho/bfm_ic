@@ -4,14 +4,16 @@ from transformer_architecture import SEEGTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
+all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
+
 training_config = {
-    'n_epochs': 10,
+    'n_epochs': 4,
     'save_network_every_n_epochs': 1,
 
     'batch_size': 116,
-    'train_subject_trials': [(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': all_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': 0.001,
-    'lr_min': 0.0001,
+    'lr_min': 0.001,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
     'lr_warmup_steps': 100,
     'weight_decay': 0.001,

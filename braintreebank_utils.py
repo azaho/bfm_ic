@@ -1,11 +1,7 @@
 import numpy as np
 
-all_subject_trials = []
-for sub_id in range(1, 11):
-    for trial_id in np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]):
-        all_subject_trials.append((sub_id, trial_id))
-
-print(all_subject_trials)
+# all subject trials including the special case for subject 6 which only has trials 0, 1, and 4
+all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 
 #####
 
