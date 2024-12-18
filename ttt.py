@@ -26,7 +26,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 training_config = {
-    'n_epochs': 4,
+    'n_epochs': 48,
     'save_network_every_n_epochs': 1,
 
     'batch_size': args.bs,
@@ -239,20 +239,20 @@ if __name__ == "__main__":
                 scheduler.step()
 
                 # Save losses every 20 batches
-                if (overall_batch_i+1) % 5 == 0:
+                if (overall_batch_i+1) % 20 == 0:
                     # Convert dtype and device to strings for JSON serialization
                     json_transformer_config = transformer_config.copy()
                     json_transformer_config['dtype'] = str(transformer_config['dtype'])
                     json_transformer_config['device'] = str(transformer_config['device'])
 
-                    for key, value in json_transformer_config.items():
-                        print(f"{key}: {value}")
-                        with open(f'{dir_name}/{key}.txt', 'w') as f:
-                            json.dump({key: value}, f, indent=4)
-                    for key, value in training_config.items():
-                        print(f"{key}: {value}")
-                        with open(f'{dir_name}/{key}.txt', 'w') as f:
-                            json.dump({key: value}, f, indent=4)
+                    # for key, value in json_transformer_config.items():
+                    #     print(f"{key}: {value}")
+                    #     with open(f'{dir_name}/{key}.txt', 'w') as f:
+                    #         json.dump({key: value}, f, indent=4)
+                    # for key, value in training_config.items():
+                    #     print(f"{key}: {value}")
+                    #     with open(f'{dir_name}/{key}.txt', 'w') as f:
+                    #         json.dump({key: value}, f, indent=4)
 
                     with open(f'{dir_name}/metadata.json', 'w') as f:
                         json.dump({
