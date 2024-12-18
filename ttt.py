@@ -9,20 +9,20 @@ print(f"Using device: {device}")
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 
 args = argparse.Namespace()
-args.lrmax = 0.0001
-args.lrmin = 0.0001
+args.lrmax = 0.001
+args.lrmin = 0.001
 args.bs = 72
 args.nl = 10
 args.dm = 256
-args.mt = 'mask-out-one'
+args.mt = 'mask-out-none'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lrmax', type=float, default=0.0001, help='Maximum learning rate')
-    parser.add_argument('--lrmin', type=float, default=0.0001, help='Minimum learning rate') 
-    parser.add_argument('--bs', type=int, default=72, help='Batch size')
-    parser.add_argument('--nl', type=int, default=10, help='Number of transformer layers')
-    parser.add_argument('--dm', type=int, default=256, help='Model dimension')
-    parser.add_argument('--mt', type=str, default='mask-out-one', help='Mask type')
+    parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
+    parser.add_argument('--lrmin', type=float, default=args.lrmin, help='Minimum learning rate') 
+    parser.add_argument('--bs', type=int, default=args.bs, help='Batch size')
+    parser.add_argument('--nl', type=int, default=args.nl, help='Number of transformer layers')
+    parser.add_argument('--dm', type=int, default=args.dm, help='Model dimension')
+    parser.add_argument('--mt', type=str, default=args.mt, help='Mask type')
     args = parser.parse_args()
 
 training_config = {
@@ -35,7 +35,7 @@ training_config = {
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
     'lr_warmup_steps': 100,
-    'weight_decay': 0.001,
+    'weight_decay': 0.000,
     'random_string': "XX",
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
