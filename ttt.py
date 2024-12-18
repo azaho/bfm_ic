@@ -161,6 +161,7 @@ if __name__ == "__main__":
     print(f"Number of electrode embedding parameters: {num_emb_params}")
     
     total_steps = training_config['n_epochs'] * np.sum([dataloader.length(training_config['batch_size']) for dataloader in dataloader_store])
+    total_steps = int(total_steps)
     training_config['total_steps'] = total_steps
     print(f"Total steps: {total_steps}")
     if 'lr_warmup_steps' in training_config:
@@ -238,7 +239,7 @@ if __name__ == "__main__":
                 scheduler.step()
 
                 # Save losses every 20 batches
-                if (overall_batch_i+1) % 20 == 0:
+                if (overall_batch_i+1) % 5 == 0:
                     # Convert dtype and device to strings for JSON serialization
                     json_transformer_config = transformer_config.copy()
                     json_transformer_config['dtype'] = str(transformer_config['dtype'])
