@@ -7,9 +7,11 @@ for sub_id in range(1, 11):
 
 print(all_subject_trials)
 
+#####
+
 from braintreebank_process_chunks import *
 
 for sub_id, trial_id in all_subject_trials:
     print(f"Processing subject {sub_id} trial {trial_id}")
-    subject = process_subject_trial(sub_id, trial_id)
-    subject.check_electrodes()
+    subject = Subject(sub_id)
+    subject.check_electrodes(trial_id)
