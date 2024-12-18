@@ -5,7 +5,7 @@
 #SBATCH --array=0-0       # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
 #SBATCH --gres=gpu:a100:1
-export PATH="/om2/user/zaho/anaconda3/bin:$PATH"
+#export PATH="/om2/user/zaho/anaconda3/bin:$PATH"
 #conda activate venv
 
 # Define arrays for each hyperparameter
