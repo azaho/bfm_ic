@@ -14,4 +14,7 @@ from braintreebank_process_chunks import *
 for sub_id, trial_id in all_subject_trials:
     print(f"Processing subject {sub_id} trial {trial_id}")
     subject = Subject(sub_id)
+    subject.load_neural_data(trial_id)
     subject.check_electrodes(trial_id)
+    subject.close_all_files()
+    del subject
