@@ -11,7 +11,7 @@ all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2
 args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
-args.bs = 116
+args.bs = 72
 args.nl = 10
 args.dm = 256
 args.mt = 'mask-out-one'
@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=0.001, help='Maximum learning rate')
     parser.add_argument('--lrmin', type=float, default=0.001, help='Minimum learning rate') 
-    parser.add_argument('--bs', type=int, default=116, help='Batch size')
+    parser.add_argument('--bs', type=int, default=72, help='Batch size')
     parser.add_argument('--nl', type=int, default=10, help='Number of transformer layers')
     parser.add_argument('--dm', type=int, default=256, help='Model dimension')
     parser.add_argument('--mt', type=str, default='mask-out-one', help='Mask type')
@@ -42,7 +42,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 
 transformer_config = {
     'model_name': "trx",
-    'max_n_electrodes': 130,
+    'max_n_electrodes': 158,
     'n_freq_features': 37,
     'max_n_time_bins': 10,
     'd_model': args.dm,
