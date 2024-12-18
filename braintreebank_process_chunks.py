@@ -10,6 +10,8 @@ import numpy as np
 import seaborn as sns
 import argparse
 
+root_dir = ""
+laplacian_rereferenced = False
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 class Subject:
@@ -222,9 +224,6 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     del subject
 
 if __name__ == "__main__":
-    root_dir = ""
-    laplacian_rereferenced = False
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--sub_id', type=int, required=False, help='Subject ID', default=-1)
     parser.add_argument('--trial_id', type=int, required=False, help='Trial ID', default=-1)

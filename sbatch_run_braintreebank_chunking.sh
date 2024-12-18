@@ -5,7 +5,7 @@
 #SBATCH --array=1-10       # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
 export PATH="/om2/user/zaho/anaconda3/bin:$PATH"
-conda activate venv
+#conda activate venv
 
 # Define arrays for each hyperparameter
 #n_top_pc_llm_array=(100 400 800 -1)
