@@ -122,11 +122,13 @@ if __name__ == "__main__":
     
     print(f"Number of model parameters: {num_model_params}")
 
+    subject_electrode_emb_store = {}
     electrode_emb_store = []
     for i in range(len(training_config['train_subject_trials'])):
         subject_id, trial_id = training_config['train_subject_trials'][i]
-        electrode_emb = torch.nn.Parameter(torch.randn(transformer_config['max_n_electrodes'], transformer_config['d_model']).to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model']))
-        electrode_emb_store.append(electrode_emb)
+        if subject_id not in subject_electrode_emb_store:
+            subject_electrode_emb_store[subject_id] = torch.nn.Parameter(torch.randn(transformer_config['max_n_electrodes'], transformer_config['d_model']).to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model']))
+        electrode_emb_store.append(subject_electrode_emb_store[subject_id])
     electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
     num_emb_params = sum(p.numel() for p in electrode_emb_store + [electrode_embeddings_scale])
     transformer_config['n_emb_params'] = num_emb_params
