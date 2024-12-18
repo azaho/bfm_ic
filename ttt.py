@@ -243,8 +243,15 @@ if __name__ == "__main__":
                     json_transformer_config = transformer_config.copy()
                     json_transformer_config['dtype'] = str(transformer_config['dtype'])
                     json_transformer_config['device'] = str(transformer_config['device'])
-                    json_training_config = training_config.copy()
-                    json_training_config['random_seed'] = str(training_config['random_seed'])
+
+                    for key, value in json_transformer_config.items():
+                        print(f"{key}: {value}")
+                        with open(f'{dir_name}/{key}.txt', 'w') as f:
+                            json.dump({key: value}, f, indent=4)
+                    for key, value in training_config.items():
+                        print(f"{key}: {value}")
+                        with open(f'{dir_name}/{key}.txt', 'w') as f:
+                            json.dump({key: value}, f, indent=4)
 
                     with open(f'{dir_name}/metadata.json', 'w') as f:
                         json.dump({
