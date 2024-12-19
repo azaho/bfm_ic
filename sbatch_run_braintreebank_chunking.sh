@@ -8,6 +8,8 @@ export PATH="/om2/user/zaho/anaconda3/bin:/om2/user/zaho/anaconda3/condabin:$PAT
 eval "$(conda shell.bash hook)"
 conda activate venv
 
+export HDF5_USE_FILE_LOCKING=FALSE
+
 # Define arrays for each hyperparameter
 #n_top_pc_llm_array=(100 400 800 -1)
 #weight_decay_array=(0.0 0.001 0.005 0.01 0.02)
@@ -15,4 +17,4 @@ conda activate venv
 #index=$SLURM_ARRAY_TASK_ID
 #n_top_pc_llm_index=$((index % 4))
 
-python braintreebank_process_chunks.py --sub_id $SLURM_ARRAY_TASK_ID --save_to_dir btb_data_chunks_new
+python braintreebank_process_chunks.py --sub_id $SLURM_ARRAY_TASK_ID --save_to_dir /om/user/zaho/bfm_ic/btb_data_chunks_new

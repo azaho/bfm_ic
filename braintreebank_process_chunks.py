@@ -13,6 +13,7 @@ import argparse
 root_dir = ""
 laplacian_rereferenced = False
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+os.environ["HDF5_USE_FILE_LOCKING"]= "FALSE"
 
 class Subject:
     def __init__(self, subject_id, sampling_rate=2048, allow_corrupted=True):
@@ -93,7 +94,7 @@ class Subject:
     def load_neural_data(self, trial_id):
         if trial_id in self.neural_data: return
         neural_data_file = os.path.join(root_dir, f'braintreebank/sub_{self.subject_id}_trial{trial_id:03}.h5')
-        h5f = h5py.File(neural_data_file, 'r')
+        h5f = h5py.File(neural_data_file, 'r', locking=False)
         self.h5f_files[trial_id] = h5f
         self.neural_data[trial_id] = h5f['data']
         self.neural_data_cache[trial_id] = {}
