@@ -10,7 +10,7 @@ all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2
 subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
 
 args = argparse.Namespace()
-args.lrmax = 0.0001
+args.lrmax = 0.001
 args.lrmin = 0.0001
 args.bs = 72
 args.nl = 10
