@@ -6,6 +6,7 @@
 #SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
 #SBATCH --gres=gpu:a100:1
 export PATH="/om2/user/zaho/anaconda3/bin:/om2/user/zaho/anaconda3/condabin:$PATH"
+eval "$(conda shell.bash hook)"
 conda activate venv
 
 # Define arrays for each hyperparameter
