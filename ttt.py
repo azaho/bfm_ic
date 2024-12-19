@@ -7,6 +7,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
+subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
 
 args = argparse.Namespace()
 args.lrmax = 0.001
@@ -24,13 +25,14 @@ if __name__ == '__main__':
     parser.add_argument('--dm', type=int, default=args.dm, help='Model dimension')
     parser.add_argument('--mt', type=str, default=args.mt, help='Mask type')
     args = parser.parse_args()
+    assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
 
 training_config = {
     'n_epochs': 48,
     'save_network_every_n_epochs': 1,
 
     'batch_size': args.bs,
-    'train_subject_trials': all_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
@@ -42,7 +44,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 
 transformer_config = {
     'model_name': "trx",
-    'max_n_electrodes': 158,
+    'max_n_electrodes': 130,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 10,
     'd_model': args.dm,
