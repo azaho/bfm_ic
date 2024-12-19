@@ -15,7 +15,7 @@ laplacian_rereferenced = False
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 class Subject:
-    def __init__(self, subject_id, sampling_rate=2048):
+    def __init__(self, subject_id, sampling_rate=2048, allow_corrupted=True):
         self.subject_id = subject_id
         self.sampling_rate = sampling_rate
         self.localization_data = self._load_localization_data()
@@ -23,7 +23,7 @@ class Subject:
         self.neural_data_cache = {}
         self.h5f_files = {}
         self.corrupted_electrodes = self._get_corrupted_electrodes()
-        self.electrode_labels = self._get_electrode_names()
+        self.electrode_labels = self._get_electrode_names(allow_corrupted=allow_corrupted)
         self.electrode_ids = {e:i for i, e in enumerate(self.electrode_labels)}
         self.laplacian_electrodes, self.electrode_neighbors = self._get_all_laplacian_electrodes()
 
@@ -152,18 +152,21 @@ class Subject:
         for h5f in self.h5f_files.values():
             h5f.close()
 
-def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True, global_per_electrode_normalizing_params=True):
+def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256, noverlap=0, window_length=None, verbose=True, global_per_electrode_normalizing_params=True, allow_corrupted=False, only_laplacian=False, save_to_dir="braintreebank_data_chunks"):
     if window_length is None: window_length = nperseg * 8 * 10 # 10 seconds
+    assert window_length % nperseg == 0, "Window length must be divisible by nperseg"
+    assert (not laplacian_rereferenced) or (only_laplacian), "Laplacian rereferenced is only supported when only_laplacian is True"
 
-    subject = Subject(sub_id)
+    subject = Subject(sub_id, allow_corrupted=allow_corrupted)
     subject.load_neural_data(trial_id)
-    n_electrodes = len(subject.laplacian_electrodes) # TODO: remove corrupted electrodes
+    electrode_labels = subject.laplacian_electrodes if only_laplacian else subject.electrode_labels
+    n_electrodes = len(electrode_labels) # TODO: remove corrupted electrodes
     total_samples = subject.neural_data[trial_id]['electrode_0'].shape[0]
 
     if global_per_electrode_normalizing_params:
         if verbose: print("Computing normalizing parameters for electrodes")
         normalizing_params = {}
-        for i, electrode_label in enumerate(subject.laplacian_electrodes):
+        for i, electrode_label in enumerate(electrode_labels):
             mean, std = subject.get_spectrogram_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=False)
             normalizing_params[electrode_label] = (mean, std)
             #print(f"Normalizing params for {electrode_label}: mean={mean}, std={std}")
@@ -177,15 +180,15 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     for window_from in windows_range:
         window_to = window_from + window_length
         data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, 37), dtype=np.float32)
-        for i, electrode_label in enumerate(subject.laplacian_electrodes):
+        for i, electrode_label in enumerate(electrode_labels):
             f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, 
                                                 normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False,
                                                 normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
             data_chunk[i, :, :] = Sxx.T # data_chunk shape: (n_electrodes, n_time_bins, n_freqs)
         #print(data_chunk)
-        if not os.path.exists('braintreebank_data_chunks'):
-            os.makedirs('braintreebank_data_chunks')
-        np.save(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.npy', data_chunk)
+        if not os.path.exists(save_to_dir):
+            os.makedirs(save_to_dir)
+        np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.npy', data_chunk)
         if verbose: print(f"Saved chunk {window_from//window_length}")
 
     # Save a plot of an example data chunk
@@ -202,18 +205,20 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     for i in range(n_electrodes, len(axes)):
         axes[i].axis('off')
     plt.tight_layout()
-    plt.savefig(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.pdf')
+    plt.savefig(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.pdf')
     plt.close()
     if verbose: print(f"Saved plot of chunk {window_from//window_length}")
 
     # Save metadata about the subject and trial
     n_time_bins = data_chunk.shape[1]
     n_freq_features = data_chunk.shape[2]
-    with open(f'braintreebank_data_chunks/subject{sub_id}_trial{trial_id}.json', 'w') as f:
+    with open(f'{save_to_dir}/subject{sub_id}_trial{trial_id}.json', 'w') as f:
         json.dump(
             {'subject_id': int(sub_id), 
              'trial_id': int(trial_id), 
              'laplacian_rereferenced': laplacian_rereferenced,
+             'only_laplacian': only_laplacian,
+             'allow_corrupted': allow_corrupted,
              'n_electrodes': int(n_electrodes),
              'n_time_bins': int(n_time_bins),
              'n_freq_features': int(n_freq_features),
@@ -229,16 +234,21 @@ if __name__ == "__main__":
     parser.add_argument('--trial_id', type=int, required=False, help='Trial ID', default=-1)
     parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=False)
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
+    parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_data_chunks")
     args = parser.parse_args()
     sub_id = args.sub_id
     trial_id = args.trial_id
     laplacian_rereferenced = args.laplacian_rereferenced
     max_chunks = args.max_chunks
+    save_to_dir = args.save_to_dir
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
+    nperseg = 256
+    window_length = nperseg * 8 * 10 * 10 # 100 seconds per chunk, to have fewer files
     process_subject_ids = [sub_id] if sub_id > 0 else range(1, 11)
     for sub_id in process_subject_ids:
         process_trial_ids = [trial_id] if trial_id >= 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject
         if (sub_id == 6) and (trial_id < 0): process_trial_ids = [0, 1, 4] # special case for subject 6 that only has trials 0, 1, and 4
         for trial_id in process_trial_ids:
-            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, global_per_electrode_normalizing_params=True)
+            process_subject_trial(sub_id, trial_id, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, 
+                                  global_per_electrode_normalizing_params=True, save_to_dir=save_to_dir, window_length=window_length, nperseg=nperseg)

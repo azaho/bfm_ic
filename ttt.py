@@ -48,7 +48,7 @@ transformer_config = {
     'model_name': "trx",
     'max_n_electrodes': 130,#158,
     'n_freq_features': 37,
-    'max_n_time_bins': 10,
+    'max_n_time_bins': 8, # 1 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': 8,
     'n_layers': args.nl,
