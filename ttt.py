@@ -10,8 +10,8 @@ all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2
 subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
 
 args = argparse.Namespace()
-args.lrmax = 0.001
-args.lrmin = 0.001
+args.lrmax = 0.0001
+args.lrmin = 0.0001
 args.bs = 72
 args.nl = 10
 args.dm = 256
@@ -32,7 +32,7 @@ training_config = {
     'save_network_every_n_epochs': 1,
 
     'batch_size': args.bs,
-    'train_subject_trials': subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': [(2, 4)],#subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
