@@ -11,11 +11,12 @@ subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
 
 args = argparse.Namespace()
 args.lrmax = 0.001
-args.lrmin = 0.0001
-args.bs = 72
+args.lrmin = 0.001
+args.bs = 48
 args.nl = 10
 args.dm = 256
 args.mt = 'mask-out-none'
+args.dtype = 'bfloat16'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--nl', type=int, default=args.nl, help='Number of transformer layers')
     parser.add_argument('--dm', type=int, default=args.dm, help='Model dimension')
     parser.add_argument('--mt', type=str, default=args.mt, help='Mask type')
+    parser.add_argument('--dtype', type=str, default=args.dtype, choices=['bfloat16', 'float32'], help='Data type')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
 
@@ -52,7 +54,7 @@ transformer_config = {
     'n_layers': args.nl,
     'dropout': 0.1,
     'mask_type': args.mt,
-    'dtype': torch.bfloat16,
+    'dtype': getattr(torch, args.dtype),
     'device': device,
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
@@ -228,7 +230,7 @@ if __name__ == "__main__":
                 # Get GPU memory usage
                 gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
                 
-                print(f"Batch {overall_batch_i+1}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
+                print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {training_config['train_subject_trials'][subject_i]} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
                 
                 loss_store.append(loss.item())
                 emb_scale_store.append(electrode_embeddings_scale.item())
