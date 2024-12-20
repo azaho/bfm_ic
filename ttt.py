@@ -87,7 +87,7 @@ def update_dir_name():
 dir_name = update_dir_name()
 
 # Set all random seeds for reproducibility
-if 'random_string' in training_config:
+if ('random_string' in training_config) and (len(training_config['random_string']) > 0):
     training_config['random_seed'] = int(training_config['random_string'], 36)
     torch.manual_seed(training_config['random_seed'])
     np.random.seed(training_config['random_seed'])
