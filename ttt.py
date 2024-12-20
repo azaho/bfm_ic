@@ -99,6 +99,7 @@ if (not ('random_string' in training_config)) or (len(training_config['random_st
     training_config['random_string'] = str(time.time())[-3:]
 random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
 random_seed **= 2
+random_seed %= 2**32
 training_config['random_seed'] = random_seed
 torch.manual_seed(random_seed)
 np.random.seed(random_seed)
