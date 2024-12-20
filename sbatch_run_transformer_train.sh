@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=2G    # memory per cpu-core
-#SBATCH -t 3:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
+#SBATCH -t 5:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-26      # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
 #SBATCH --gres=gpu:a100:1
+
 export PATH="/om2/user/zaho/anaconda3/bin:/om2/user/zaho/anaconda3/condabin:$PATH"
 eval "$(conda shell.bash hook)"
 conda activate venv

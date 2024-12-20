@@ -52,7 +52,7 @@ if __name__ == '__main__':
             time.sleep(1)
 
 training_config = {
-    'n_epochs': 120,
+    'n_epochs': 240,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
 
