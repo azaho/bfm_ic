@@ -361,6 +361,11 @@ if __name__ == "__main__":
             time_str = f"{int(time_remaining//3600):02d}:{int((time_remaining%3600)//60):02d}:{int(time_remaining%60):02d}"
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
+            loss.backward()
+            gradient_norm = torch.norm(torch.tensor([torch.norm(p.grad, 2).item() for p in all_params if p.grad is not None]), 2)
+            if training_config['max_gradient_norm'] > 0:
+                torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
+
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
             wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
 
@@ -369,10 +374,6 @@ if __name__ == "__main__":
             subject_trial_store.append(subject_trial)
             gradient_norm_store.append(gradient_norm.item())
 
-            loss.backward()
-            gradient_norm = torch.norm(torch.tensor([torch.norm(p.grad, 2).item() for p in all_params if p.grad is not None]), 2)
-            if training_config['max_gradient_norm'] > 0:
-                torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
             optimizer.step()
             optimizer.zero_grad()
             scheduler.step()
