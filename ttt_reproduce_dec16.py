@@ -1,6 +1,7 @@
 import torch, numpy as np, json, os, time
 from transformer_architecture import SEEGTransformer
 import argparse
+import wandb
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -203,6 +204,18 @@ if __name__ == "__main__":
     inner_batch_i_store = []
     subject_trial_i_store = []
 
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="bfm",
+
+        # track hyperparameters and run metadata
+        config={
+            "training_config": training_config,
+            "transformer_config": transformer_config,
+        }
+    )
+
     training_start_time = time.time()
     overall_batch_i = -1
     for epoch_i in range(training_config['n_epochs']):
@@ -237,7 +250,8 @@ if __name__ == "__main__":
                 gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
                 
                 print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {training_config['train_subject_trials'][subject_i]} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
-                
+                wandb.log({"loss": loss, "emb_scale": electrode_embeddings_scale.item()*10, "gpu_mem": gpu_mem_used, "time_left": time_str})
+
                 loss_store.append(loss.item())
                 emb_scale_store.append(electrode_embeddings_scale.item())
                 inner_batch_i_store.append(i)
@@ -282,3 +296,4 @@ if __name__ == "__main__":
         if (epoch_i + 1) % training_config['save_network_every_n_epochs'] == 0:
             torch.save(model.state_dict(), f'{dir_name}/model_state_dict_epoch{epoch_i+1}.pth')
             print(f"Saved model checkpoint for epoch {epoch_i+1}")
+    wandb.finish()
