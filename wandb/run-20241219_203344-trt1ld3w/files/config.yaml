@@ -1,0 +1,56 @@
+_wandb:
+    value:
+        cli_version: 0.19.1
+        m: []
+        python_version: 3.12.5
+        t:
+            "1":
+                - 1
+                - 55
+            "2":
+                - 1
+                - 55
+            "3":
+                - 16
+                - 23
+                - 55
+            "4": 3.12.5
+            "5": 0.19.1
+            "8":
+                - 3
+                - 5
+            "12": 0.19.1
+            "13": windows-amd64
+training_config:
+    value:
+        batch_size: 64
+        lr_max: 0.001
+        lr_min: 0.001
+        lr_warmup_frac: 0.5
+        lr_warmup_steps: 100
+        n_epochs: 100
+        random_seed: 1221
+        random_string: XX
+        save_network_every_n_epochs: 20
+        total_steps: 200
+        train_subject_trials:
+            - - 2
+              - 4
+        weight_decay: 0
+transformer_config:
+    value:
+        d_model: 120
+        device: cpu
+        dim_output: 37
+        dropout: 0.2
+        dtype: torch.float32
+        mask_type: mask-out-none
+        max_n_electrodes: 2
+        max_n_time_bins: 8
+        model_name: trx
+        n_emb_params: 15601
+        n_freq_features: 37
+        n_heads: 6
+        n_layers: 10
+        n_params: 1752637
+        rope_encoding_scale: 8

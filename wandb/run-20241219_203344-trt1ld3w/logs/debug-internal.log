@@ -1,0 +1,16 @@
+{"time":"2024-12-19T20:33:45.022217-05:00","level":"INFO","msg":"using version","core version":"0.19.1"}
+{"time":"2024-12-19T20:33:45.022217-05:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\anzah\\Documents\\Projects\\private_bfm_ic\\wandb\\run-20241219_203344-trt1ld3w\\logs\\debug-core.log"}
+{"time":"2024-12-19T20:33:45.3876619-05:00","level":"INFO","msg":"created new stream","id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:45.3881814-05:00","level":"INFO","msg":"stream: started","id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:45.3881814-05:00","level":"INFO","msg":"writer: Do: started","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:45.3882917-05:00","level":"INFO","msg":"handler: started","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:45.3883621-05:00","level":"INFO","msg":"sender: started","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:45.6446025-05:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2024-12-19T20:33:46.3241841-05:00","level":"INFO","msg":"stream: closing","id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:46.3241841-05:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2024-12-19T20:33:46.3248448-05:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2024-12-19T20:33:46.6900689-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2024-12-19T20:33:46.8192716-05:00","level":"INFO","msg":"handler: closed","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:46.8192716-05:00","level":"INFO","msg":"sender: closed","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:46.8192716-05:00","level":"INFO","msg":"writer: Close: closed","stream_id":"trt1ld3w"}
+{"time":"2024-12-19T20:33:46.8202832-05:00","level":"INFO","msg":"stream: closed","id":"trt1ld3w"}

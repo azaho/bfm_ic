@@ -21,6 +21,7 @@ args.dtype = 'float32'
 args.nh = 6
 args.dr = 0.2
 args.rs = "XX"  # Added random string parameter
+args.lrwm = 100  # Added learning rate warmup steps parameter
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -33,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--nh', type=int, default=args.nh, help='Number of attention heads')
     parser.add_argument('--dr', type=float, default=args.dr, help='Dropout rate')
     parser.add_argument('--rs', type=str, default=args.rs, help='Random string')  # Added random string argument
+    parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps')  # Added warmup steps argument
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
 
@@ -45,7 +47,7 @@ training_config = {
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
-    'lr_warmup_steps': 100,
+    'lr_warmup_steps': args.lrwm,
     'weight_decay': 0.000,
     'random_string': args.rs,  # Using random string from args
 }
@@ -208,6 +210,8 @@ if __name__ == "__main__":
     wandb.init(
         # set the wandb project where this run will be logged
         project="bfm",
+        name=dir_name.split('/')[-1],
+        id=dir_name.split('/')[-1],
 
         # track hyperparameters and run metadata
         config={
@@ -232,6 +236,10 @@ if __name__ == "__main__":
                 output = model(data[:, :, :, :-1, :], electrode_emb)
                 
                 loss = ((output-data[:, :, :, 1:, :])**2).mean()
+
+                with torch.no_grad():
+                    loss_per_electrode = ((output-data[:, :, :, 1:, :])**2).mean(dim=[0, 1, 3, 4]).to('cpu').tolist()
+                    loss_per_electrode = {f"loss_electrode_{i}": loss_per_electrode[i] for i in range(len(loss_per_electrode))}
                 
                 # Calculate time remaining
                 steps_done = overall_batch_i + 1
@@ -250,7 +258,7 @@ if __name__ == "__main__":
                 gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
                 
                 print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {training_config['train_subject_trials'][subject_i]} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
-                wandb.log({"loss": loss, "emb_scale": electrode_embeddings_scale.item()*10, "gpu_mem": gpu_mem_used, "time_left": time_str})
+                wandb.log({"loss": loss, **loss_per_electrode})
 
                 loss_store.append(loss.item())
                 emb_scale_store.append(electrode_embeddings_scale.item())
