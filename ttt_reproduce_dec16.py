@@ -12,12 +12,12 @@ subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
 args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
-args.bs = 48
+args.bs = 64
 args.nl = 10
-args.dm = 256
+args.dm = 120
 args.mt = 'mask-out-none'
-args.dtype = 'bfloat16'
-args.nh = 8
+args.dtype = 'float32'
+args.nh = 6
 args.dr = 0.2
 args.rs = "XX"  # Added random string parameter
 if __name__ == '__main__':
@@ -36,8 +36,8 @@ if __name__ == '__main__':
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
 
 training_config = {
-    'n_epochs': 48,
-    'save_network_every_n_epochs': 12,
+    'n_epochs': 100,
+    'save_network_every_n_epochs': 20,
 
     'batch_size': args.bs,
     'train_subject_trials': [(2, 4)],#subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
