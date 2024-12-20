@@ -39,7 +39,7 @@ if __name__ == '__main__':
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
 
 training_config = {
-    'n_epochs': 100,
+    'n_epochs': 240,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
 
@@ -268,7 +268,8 @@ if __name__ == "__main__":
         config={
             "training_config": training_config,
             "transformer_config": transformer_config,
-        }
+        },
+        settings=wandb.Settings(init_timeout=120)
     )
 
     loss_store = []

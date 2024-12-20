@@ -11,7 +11,7 @@ conda activate venv
 
 # Define arrays for each hyperparameter
 dtype_array=('bfloat16' 'float32')
-lr_array=(0.0001 0.001)
+lr_array=(0.002 0.001)
 # Calculate indices for each hyperparameter
 index=$SLURM_ARRAY_TASK_ID
 dtype_index=$((index % 2))
