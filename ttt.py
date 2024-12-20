@@ -14,11 +14,11 @@ args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 50
-args.nl = 10
-args.dm = 120
+args.nl = 15
+args.dm = 240
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
-args.nh = 6
+args.nh = 12
 args.dr = 0.2
 args.rs = "" 
 args.lrwm = 0 
@@ -57,7 +57,7 @@ training_config = {
     'save_losses_every_n_batches': 20,
 
     'batch_size': args.bs,
-    'train_subject_trials': [(2, 4)], #subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
