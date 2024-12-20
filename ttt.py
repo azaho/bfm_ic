@@ -41,6 +41,7 @@ if __name__ == '__main__':
 training_config = {
     'n_epochs': 100,
     'save_network_every_n_epochs': 20,
+    'save_losses_every_n_batches': 20,
 
     'batch_size': args.bs,
     'train_subject_trials': [(2, 4)],#subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
@@ -55,9 +56,9 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 
 transformer_config = {
     'model_name': "trx",
-    'max_n_electrodes': 135,#158,
+    'max_n_electrodes': 13,#158,
     'n_freq_features': 37,
-    'max_n_time_bins': 8, # 1 second of time (every bin is 125 ms)
+    'max_n_time_bins': 10, # 1 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
     'n_layers': args.nl,
@@ -99,13 +100,12 @@ if ('random_string' in training_config) and (len(training_config['random_string'
 else:
     training_config['random_seed'] = -1
 
-class BrainTreebankDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda'):
+class BrainTreebankSubjectTrialDataLoader:
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
-        self.current_chunk = 0
         self.chunks = []
         self.n_time_bins = transformer_config['max_n_time_bins']
         # Load metadata
@@ -120,21 +120,38 @@ class BrainTreebankDataLoader:
         self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
         self.n_freq_features = self.metadata['n_freq_features'] if 'n_freq_features' in self.metadata else transformer_config['n_freq_features']
 
+        self.all_chunk_ids = np.arange(self.n_chunks)
+        self.already_loaded_chunk_ids = []
+        self.randomize_chunk_order = randomize_chunk_order
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.all_chunk_ids)
+        self.current_chunk = -1
+
     def _load_chunk(self, chunk_id):
         chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path))
         return chunk_data.unsqueeze(0)
+    
+    def _get_next_chunk_id(self):
+        self.current_chunk += 1
+        return self.all_chunk_ids[self.current_chunk]
+    def _have_next_chunk(self):
+        return self.current_chunk < self.n_chunks
+
+    def reset(self):
+        self.chunks = []
+        self.already_loaded_chunk_ids = []
+        self.current_chunk = -1
 
     def get_next_batch(self, batch_size):
         # Remove oldest chunk if we have 5 chunks
         self.chunks = self.chunks[batch_size:]
         # Load next chunk
-        while (len(self.chunks) < batch_size) and (self.current_chunk < self.n_chunks):
-            new_chunk = self._load_chunk(self.current_chunk) # shape: (1, n_electrodes, n_time_bins, n_freq_features)
+        while (len(self.chunks) < batch_size) and (self._have_next_chunk()):
+            new_chunk = self._load_chunk(self._get_next_chunk_id()) # shape: (1, n_electrodes, n_time_bins, n_freq_features)
             new_chunk = new_chunk.reshape(1, self.n_electrodes, -1, transformer_config['max_n_time_bins'], transformer_config['n_freq_features'])
             for i in range(new_chunk.shape[2]):
                 self.chunks.append(new_chunk[:, :, i, :, :])
-            self.current_chunk += 1
         # Combine chunks
         data = torch.cat(self.chunks[0:batch_size], dim=0).unsqueeze(1)
         if self.trim_electrodes_to:
@@ -144,9 +161,60 @@ class BrainTreebankDataLoader:
     def length(self, batch_size):
         return (self.n_chunks-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
     
+class BrainTreebankDataLoader:
+    def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True):
+        self.subject_trials = subject_trials
+        self.trim_electrodes_to = trim_electrodes_to
+        self.device = device
+        self.randomize_subject_trials = randomize_subject_trials
+        self.randomize_chunk_order = randomize_chunk_order
+        self.current_subject_trial_i = -1
+
+        self.dataloader_store = []
+        for subject_id, trial_id in self.subject_trials:
+            dataloader = BrainTreebankSubjectTrialDataLoader(subject_id, trial_id, trim_electrodes_to=self.trim_electrodes_to, 
+                                                             device=device, randomize_chunk_order=self.randomize_chunk_order)
+            self.dataloader_store.append(dataloader)
+
+        self.subject_electrode_emb_store = {}
+        for i in range(len(self.subject_trials)):
+            subject_id, trial_id = self.subject_trials[i]
+            if subject_id not in self.subject_electrode_emb_store:
+                embedding = torch.randn(min(self.dataloader_store[i].n_electrodes, self.trim_electrodes_to), transformer_config['d_model'])
+                embedding = embedding.to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model'])
+                self.subject_electrode_emb_store[subject_id] = torch.nn.Parameter(embedding)
+        #self.electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
+
+        self.total_steps = self.__len__()
+        self.current_step = 0
+    
+    def get_next_subject_trial_id(self):
+        if not self.have_next_subject_trial():
+            self.current_subject_trial_i += 1
+            return self.current_subject_trial_i
+        else:
+            return np.random.randint(len(self.subject_trials))
+    def have_next_subject_trial(self):
+        return self.current_step < self.total_steps
     def reset(self):
-        self.chunks = []
-        self.current_chunk = 0
+        self.current_step = 0
+        self.current_subject_trial_i = -1
+        for dataloader in self.dataloader_store:
+            dataloader.reset()
+
+    def get_n_embedding_params(self):
+        num_emb_params = sum(p.numel() for p in self.subject_electrode_emb_store.values())
+        return num_emb_params
+    def parameters(self):
+        return list(self.subject_electrode_emb_store.values())# + [self.electrode_embeddings_scale]
+    def __len__(self):
+        return np.sum([dataloader.length(training_config['batch_size']) for dataloader in self.dataloader_store])
+    
+    def get_next_batch(self, batch_size):
+        subject_trial_id = self.get_next_subject_trial_id()
+        subject_id, trial_id = self.subject_trials[subject_trial_id]
+        self.current_step += 1
+        return self.dataloader_store[subject_trial_id].get_next_batch(batch_size), self.subject_electrode_emb_store[subject_id], (subject_id, trial_id)
 
 if __name__ == "__main__":
     # Create directory if it doesn't exist
@@ -156,28 +224,13 @@ if __name__ == "__main__":
     model = SEEGTransformer(config=transformer_config, device=device).to(device, dtype=transformer_config['dtype'])
     num_model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     transformer_config['n_params'] = num_model_params
-    
     print(f"Number of model parameters: {num_model_params}")
 
-    dataloader_store = []
-    for subject_id, trial_id in training_config['train_subject_trials']:
-        dataloader = BrainTreebankDataLoader(subject_id, trial_id, trim_electrodes_to=transformer_config['max_n_electrodes'], device=device)
-        dataloader_store.append(dataloader)
+    dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], trim_electrodes_to=transformer_config['max_n_electrodes'], device=device)
+    transformer_config['n_emb_params'] = dataloader.get_n_embedding_params()
+    print(f"Number of electrode embedding parameters: {transformer_config['n_emb_params']}")
 
-    subject_electrode_emb_store = {}
-    electrode_emb_store = []
-    for i in range(len(training_config['train_subject_trials'])):
-        subject_id, trial_id = training_config['train_subject_trials'][i]
-        if subject_id not in subject_electrode_emb_store:
-            subject_electrode_emb_store[subject_id] = torch.nn.Parameter(torch.randn(dataloader_store[i].n_electrodes, transformer_config['d_model']).to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model']))
-        electrode_emb_store.append(subject_electrode_emb_store[subject_id])
-    electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
-    num_emb_params = sum(p.numel() for p in electrode_emb_store + [electrode_embeddings_scale])
-    transformer_config['n_emb_params'] = num_emb_params
-    print(f"Number of electrode embedding parameters: {num_emb_params}")
-    
-    total_steps = training_config['n_epochs'] * np.sum([dataloader.length(training_config['batch_size']) for dataloader in dataloader_store])
-    total_steps = int(total_steps)
+    total_steps = int(training_config['n_epochs'] * len(dataloader))
     training_config['total_steps'] = total_steps
     print(f"Total steps: {total_steps}")
     if 'lr_warmup_steps' in training_config:
@@ -185,7 +238,7 @@ if __name__ == "__main__":
     else:
         training_config['lr_warmup_steps'] = training_config['lr_warmup_frac'] * total_steps
 
-    all_params = list(model.parameters()) + electrode_emb_store + [electrode_embeddings_scale]
+    all_params = list(model.parameters()) + dataloader.parameters()
     optimizer = torch.optim.Adam(all_params, lr=training_config['lr_max'], weight_decay=training_config['weight_decay'])
 
     # Learning rate schedule
@@ -204,11 +257,6 @@ if __name__ == "__main__":
             return cosine_decay * (1 - lr_min / lr_max) + lr_min / lr_max
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    loss_store = []
-    emb_scale_store = []
-    inner_batch_i_store = []
-    subject_trial_i_store = []
-
     # start a new wandb run to track this script
     wandb.init(
         # set the wandb project where this run will be logged
@@ -223,86 +271,64 @@ if __name__ == "__main__":
         }
     )
 
+    loss_store = []
+    epoch_batch_store = []
+    subject_trial_store = []
     training_start_time = time.time()
     overall_batch_i = -1
     for epoch_i in range(training_config['n_epochs']):
-        subject_i = -1  
-        for electrode_emb, dataloader in zip(electrode_emb_store, dataloader_store):
-            subject_i += 1
-            print(f"Subject {subject_i+1} of {len(training_config['train_subject_trials'])} ({training_config['train_subject_trials'][subject_i]})")
-            dataloader.reset()
-            for i in range(dataloader.length(training_config['batch_size'])):
-                overall_batch_i += 1
-                data = dataloader.get_next_batch(training_config['batch_size']) # shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
-                
-                # Get model output on full data
-                output = model(data[:, :, :, :-1, :], electrode_emb)
-                
-                loss = ((output-data[:, :, :, 1:, :])**2).mean()
+        dataloader.reset()
+        for batch_i in range(len(dataloader)):
+            overall_batch_i += 1
+            data, electrode_emb, subject_trial = dataloader.get_next_batch(training_config['batch_size'])
+            subject_i, trial_i = subject_trial
 
-                with torch.no_grad():
-                    loss_per_electrode = ((output-data[:, :, :, 1:, :])**2).mean(dim=[0, 1, 3, 4]).to('cpu').tolist()
-                    loss_per_electrode = {f"_loss_electrode_{i}": loss_per_electrode[i] for i in range(len(loss_per_electrode))}
-                
-                # Calculate time remaining
-                steps_done = overall_batch_i + 1
-                steps_total = training_config['total_steps']
-                steps_remaining = steps_total - steps_done
-                time_per_step = (time.time() - training_start_time) / steps_done if steps_done > 0 else 0
-                time_remaining = time_per_step * steps_remaining
-                
-                # Convert to hours:minutes:seconds
-                hours = int(time_remaining // 3600)
-                minutes = int((time_remaining % 3600) // 60)
-                seconds = int(time_remaining % 60)
-                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                
-                # Get GPU memory usage
-                gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
-                
-                print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {training_config['train_subject_trials'][subject_i]} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\temb_scale: {electrode_embeddings_scale.item()*10:.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
-                wandb.log({"loss": loss})#, **loss_per_electrode})
+            # Get model output on full data
+            output = model(data[:, :, :, :-1, :], electrode_emb)
+            loss = ((output-data[:, :, :, 1:, :])**2).mean()
 
-                loss_store.append(loss.item())
-                emb_scale_store.append(electrode_embeddings_scale.item())
-                inner_batch_i_store.append(i)
-                subject_trial_i_store.append(training_config['train_subject_trials'][subject_i])
+            with torch.no_grad():
+                loss_per_electrode = ((output-data[:, :, :, 1:, :])**2).mean(dim=[0, 1, 3, 4]).to('cpu').tolist()
+                loss_per_electrode = {f"_loss_electrode_{i}": loss_per_electrode[i] for i in range(len(loss_per_electrode))}
+            
+            # Calculate time remaining
+            steps_done = overall_batch_i + 1
+            time_per_step = (time.time() - training_start_time) / max(steps_done, 1)
+            time_remaining = time_per_step * (training_config['total_steps'] - steps_done)
+            time_str = f"{int(time_remaining//3600):02d}:{int((time_remaining%3600)//60):02d}:{int(time_remaining%60):02d}"
+            gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
+            
+            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
+            wandb.log({"loss": loss})#, **loss_per_electrode})
 
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                scheduler.step()
+            loss_store.append(loss.item())
+            epoch_batch_store.append((epoch_i, batch_i))
+            subject_trial_store.append(subject_trial)
 
-                # Save losses every 20 batches
-                if (overall_batch_i+1) % 20 == 0:
-                    # Convert dtype and device to strings for JSON serialization
-                    json_transformer_config = transformer_config.copy()
-                    json_transformer_config['dtype'] = str(transformer_config['dtype'])
-                    json_transformer_config['device'] = str(transformer_config['device'])
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
 
-                    # for key, value in json_transformer_config.items():
-                    #     print(f"{key}: {value}")
-                    #     with open(f'{dir_name}/{key}.txt', 'w') as f:
-                    #         json.dump({key: value}, f, indent=4)
-                    # for key, value in training_config.items():
-                    #     print(f"{key}: {value}")
-                    #     with open(f'{dir_name}/{key}.txt', 'w') as f:
-                    #         json.dump({key: value}, f, indent=4)
-
-                    with open(f'{dir_name}/metadata.json', 'w') as f:
-                        json.dump({
-                            'transformer_config': json_transformer_config,
-                            'training_config': training_config,
-                            }, f, indent=4)
-                    with open(f'{dir_name}/training_dynamics.json', 'w') as f:
-                        json.dump({
-                            'losses': loss_store,
-                            'emb_scale': emb_scale_store,
-                            'inner_batch_i': inner_batch_i_store,
-                            'subject_trial_i': subject_trial_i_store,
-                            }, f, indent=4)
-                    torch.save(model.state_dict(), f'{dir_name}/model_state_dict.pth')
-                    print(f"Saved losses and model after batch {overall_batch_i+1}")
+            # Save losses every 20 batches
+            if (overall_batch_i+1) % training_config['save_losses_every_n_batches'] == 0:
+                # Convert dtype and device to strings for JSON serialization
+                json_transformer_config = transformer_config.copy()
+                json_transformer_config['dtype'] = str(transformer_config['dtype'])
+                json_transformer_config['device'] = str(transformer_config['device'])
+                with open(f'{dir_name}/metadata.json', 'w') as f:
+                    json.dump({
+                        'transformer_config': json_transformer_config,
+                        'training_config': training_config,
+                        }, f, indent=4)
+                with open(f'{dir_name}/training_dynamics.json', 'w') as f:
+                    json.dump({
+                        'losses': loss_store,
+                        'epoch_batch_store': epoch_batch_store,
+                        'subject_trial_store': subject_trial_store,
+                        }, f, indent=4)
+                torch.save(model.state_dict(), f'{dir_name}/model_state_dict.pth')
+                print(f"Saved losses and model after batch {overall_batch_i+1}")
         # Save model for this epoch
         if (epoch_i + 1) % training_config['save_network_every_n_epochs'] == 0:
             torch.save(model.state_dict(), f'{dir_name}/model_state_dict_epoch{epoch_i+1}.pth')
