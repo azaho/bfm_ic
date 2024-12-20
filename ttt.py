@@ -36,14 +36,14 @@ if __name__ == '__main__':
     parser.add_argument('--dr', type=float, default=args.dr, help='Dropout rate')
     parser.add_argument('--rs', type=str, default=args.rs, help='Random string')  # Added random string argument
     parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps')  # Added warmup steps argument
-    parser.add_argument('--wait_10s_intervals', type=int, default=args.wait_10s_intervals, help='Wait 10s intervals (for many jobs)')
+    parser.add_argument('--wait_n_intervals', type=int, default=args.wait_n_intervals, help='Wait n intervals (for many jobs)')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
-    if args.wait_10s_intervals > 0:
-        print(f"Waiting {args.wait_10s_intervals} 10s intervals")
-        for i in range(args.wait_10s_intervals):
-            print(f"Waiting {i+1} of {args.wait_10s_intervals}")
-            time.sleep(10)
+    if args.wait_n_intervals > 0:
+        print(f"Waiting {args.wait_n_intervals} intervals")
+        for i in range(args.wait_n_intervals):
+            print(f"Waiting {i+1} of {args.wait_n_intervals}")
+            time.sleep(1)
 
 training_config = {
     'n_epochs': 240,
@@ -79,7 +79,7 @@ transformer_config['dim_output'] = transformer_config['n_freq_features']
 
 # Set all random seeds for reproducibility
 if (not ('random_string' in training_config)) or (len(training_config['random_string']) == 0):
-    training_config['random_string'] = str(time.time())[-3:]
+    training_config['random_string'] = str(time.time())[-5:]
 random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
 random_seed **= 2
 random_seed %= 2**32
@@ -146,6 +146,8 @@ class BrainTreebankSubjectTrialDataLoader:
         self.chunks = []
         self.already_loaded_chunk_ids = []
         self.current_chunk = -1
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.all_chunk_ids)
 
     def get_next_batch(self, batch_size):
         # Remove oldest chunk if we have 5 chunks
@@ -193,7 +195,7 @@ class BrainTreebankDataLoader:
         self.current_step = 0
     
     def get_next_subject_trial_id(self):
-        if not self.have_next_subject_trial():
+        if not self.randomize_subject_trials:
             self.current_subject_trial_i += 1
             return self.current_subject_trial_i
         else:
