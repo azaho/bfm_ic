@@ -6,3 +6,4 @@ training_results/
 venv/
 __pycache__/
 training_losses*
+wandb/

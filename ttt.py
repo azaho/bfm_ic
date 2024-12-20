@@ -19,7 +19,7 @@ args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 8
 args.dr = 0.2
-args.rs = "XX"  # Added random string parameter
+args.rs = ""  # Added random string parameter
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -84,14 +84,17 @@ def update_dir_name():
 dir_name = update_dir_name()
 
 # Set all random seeds for reproducibility
-training_config['random_seed'] = int(training_config['random_string'], 36)
-torch.manual_seed(training_config['random_seed'])
-np.random.seed(training_config['random_seed'])
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(training_config['random_seed'])
-    torch.cuda.manual_seed_all(training_config['random_seed'])
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+if 'random_string' in training_config:
+    training_config['random_seed'] = int(training_config['random_string'], 36)
+    torch.manual_seed(training_config['random_seed'])
+    np.random.seed(training_config['random_seed'])
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(training_config['random_seed'])
+        torch.cuda.manual_seed_all(training_config['random_seed'])
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+else:
+    training_config['random_seed'] = -1
 
 class BrainTreebankDataLoader:
     def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda'):
