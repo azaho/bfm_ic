@@ -5,6 +5,9 @@ all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2
 
 #####
 
+# Dictionary to store MSE values for each subject
+subject_mse_dict = {}
+
 for sub_id, trial_id in all_subject_trials:
     persistence_mse_array = []
     for chunk_id in range(10):
@@ -12,7 +15,22 @@ for sub_id, trial_id in all_subject_trials:
         chunk_data = np.load(chunk_path) # (n_electrodes, n_time_bins, n_freq_features)
         persistence_mse = np.mean((chunk_data[:, 1:, :] - chunk_data[:, :-1, :])**2)
         persistence_mse_array.append(persistence_mse)
-    print(f"Subject {sub_id} trial {trial_id} mean persistence MSE: {np.mean(persistence_mse_array)}")
+    trial_mean = np.mean(persistence_mse_array)
+    print(f"Subject {sub_id} trial {trial_id} mean persistence MSE: {trial_mean}")
+    
+    # Add to subject dictionary
+    if sub_id not in subject_mse_dict:
+        subject_mse_dict[sub_id] = []
+    subject_mse_dict[sub_id].append(trial_mean)
+# Print mean for each subject
+print("\nMean persistence MSE per subject:")
+all_means = []
+for sub_id in sorted(subject_mse_dict.keys()):
+    subject_mean = np.mean(subject_mse_dict[sub_id])
+    print(f"Subject {sub_id}: {subject_mean}")
+    all_means.append(subject_mean)
+# Print overall mean
+print(f"\nOverall mean persistence MSE: {np.mean(all_means)}")
 
 #####
 
