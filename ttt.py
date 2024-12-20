@@ -24,6 +24,8 @@ args.rs = ""
 args.lrwm = 0 
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
+args.optimizer = 'AdamW'
+args.max_gradient_norm = -1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -39,6 +41,8 @@ if __name__ == '__main__':
     parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps') 
     parser.add_argument('--wait_n_intervals', type=int, default=args.wait_n_intervals, help='Wait n intervals (for many jobs)')
     parser.add_argument('--weight_decay', type=float, default=args.weight_decay, help='Weight decay')
+    parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW'], help='Optimizer type') # TODO: add Muon
+    parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     if args.wait_n_intervals > 0:
@@ -60,6 +64,7 @@ training_config = {
     'lr_warmup_steps': args.lrwm,
     'weight_decay': args.weight_decay,
     'random_string': args.rs,
+    'max_gradient_norm': args.max_gradient_norm,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 
@@ -75,6 +80,7 @@ transformer_config = {
     'mask_type': args.mt,
     'dtype': getattr(torch, args.dtype),
     'device': device,
+    'optimizer': args.optimizer,
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 transformer_config['dim_output'] = transformer_config['n_freq_features']
@@ -99,12 +105,56 @@ def update_dir_name():
     dir_name += f"_{str(transformer_config['dtype']).split('.')[1].replace('float', 'f')}"
     dir_name += f"_mt{''.join([x[0] for x in transformer_config['mask_type'].split('-')]).upper()}"
     dir_name += f"_wd{training_config['weight_decay']}"
+    dir_name += f"_mg{training_config['max_gradient_norm']}"
     dir_name += f"_lrmax{training_config['lr_max']}"
     dir_name += f"_lrmin{training_config['lr_min']}"
     dir_name += f"_lrwm{training_config['lr_warmup_steps']}" if 'lr_warmup_steps' in training_config else f"_lrwf{training_config['lr_warmup_frac']}"
     dir_name += f"_r{training_config['random_string']}"
     return dir_name
 dir_name = update_dir_name()
+
+def zeroth_power_via_newtonschulz5(G, steps=5, eps=1e-7):
+    assert len(G.shape) == 2
+    a, b, c = (3.4445, -4.7750,  2.0315)
+    X = G.bfloat16() / (G.norm() + eps)
+    if G.size(0) > G.size(1):
+        X = X.T
+    for _ in range(steps):
+        A = X @ X.T
+        B = b * A + c * A @ A
+        X = a * X + B @ X
+    if G.size(0) > G.size(1):
+        X = X.T
+    return X.to(G.dtype)
+class Muon(torch.optim.Optimizer):
+    def __init__(self, params, lr=0.02, momentum=0.95, nesterov=True,
+                backend='newtonschulz5', backend_steps=5):
+        defaults = dict(
+            lr=lr,
+            momentum=momentum,
+            nesterov=nesterov,
+            backend=backend,
+            backend_steps=backend_steps
+        )
+        super().__init__(params, defaults)
+    def step(self):
+        for group in self.param_groups:
+            lr = group['lr']
+            momentum = group['momentum']
+            zeropower_backend = zeroth_power_via_newtonschulz5
+
+            for i, p in enumerate(group['params']):
+                g = p.grad
+                assert g is not None
+                state = self.state[p]
+                if 'momentum_buffer' not in state:
+                    state['momentum_buffer'] = torch.zeros_like(g)
+                buf = state['momentum_buffer']
+                buf.mul_(momentum).add_(g)
+                if group['nesterov']:
+                    g = g.add(buf, alpha=momentum)
+                g = zeropower_backend(g, steps=group['backend_steps'])
+                p.data.add_(g, alpha=-lr)
 
 class BrainTreebankSubjectTrialDataLoader:
     def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True):
@@ -284,6 +334,7 @@ if __name__ == "__main__":
     )
 
     loss_store = []
+    gradient_norm_store = []
     epoch_batch_store = []
     subject_trial_store = []
     training_start_time = time.time()
@@ -298,6 +349,7 @@ if __name__ == "__main__":
             # Get model output on full data
             output = model(data[:, :, :, :-1, :], electrode_emb)
             loss = ((output-data[:, :, :, 1:, :])**2).mean()
+            gradient_norm = torch.norm(torch.stack([torch.norm(p.grad) for p in all_params if p.grad is not None]), 2)
 
             with torch.no_grad():
                 loss_per_electrode = ((output-data[:, :, :, 1:, :])**2).mean(dim=[0, 1, 3, 4]).to('cpu').tolist()
@@ -311,13 +363,16 @@ if __name__ == "__main__":
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
-            wandb.log({"loss": loss})#, **loss_per_electrode})
+            wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
 
             loss_store.append(loss.item())
             epoch_batch_store.append((epoch_i, batch_i))
             subject_trial_store.append(subject_trial)
+            gradient_norm_store.append(gradient_norm.item())
 
             loss.backward()
+            if training_config['max_gradient_norm'] > 0:
+                torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
             optimizer.step()
             optimizer.zero_grad()
             scheduler.step()
@@ -338,6 +393,7 @@ if __name__ == "__main__":
                         'losses': loss_store,
                         'epoch_batch_store': epoch_batch_store,
                         'subject_trial_store': subject_trial_store,
+                        'gradient_norm_store': gradient_norm_store,
                         }, f, indent=4)
                 torch.save(model.state_dict(), f'{dir_name}/model_state_dict.pth')
                 print(f"Saved losses and model after batch {overall_batch_i+1}")
