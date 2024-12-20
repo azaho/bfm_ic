@@ -131,7 +131,7 @@ class BrainTreebankSubjectTrialDataLoader:
         self.randomize_chunk_order = randomize_chunk_order
         if self.randomize_chunk_order:
             np.random.shuffle(self.all_chunk_ids)
-        self.current_chunk = -1
+        self.current_chunk = 0
 
     def _load_chunk(self, chunk_id):
         chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
@@ -140,14 +140,14 @@ class BrainTreebankSubjectTrialDataLoader:
     
     def _get_next_chunk_id(self):
         self.current_chunk += 1
-        return self.all_chunk_ids[self.current_chunk]
+        return self.all_chunk_ids[self.current_chunk-1]
     def _have_next_chunk(self):
         return self.current_chunk < self.n_chunks
 
     def reset(self):
         self.chunks = []
         self.already_loaded_chunk_ids = []
-        self.current_chunk = -1
+        self.current_chunk = 0
         if self.randomize_chunk_order:
             np.random.shuffle(self.all_chunk_ids)
 
@@ -176,7 +176,6 @@ class BrainTreebankDataLoader:
         self.device = device
         self.randomize_subject_trials = randomize_subject_trials
         self.randomize_chunk_order = randomize_chunk_order
-        self.current_subject_trial_i = -1
 
         self.dataloader_store = []
         for subject_id, trial_id in self.subject_trials:
@@ -195,18 +194,20 @@ class BrainTreebankDataLoader:
 
         self.total_steps = self.__len__()
         self.current_step = 0
+        self.total_steps_dataloaders = [dataloader.length(training_config['batch_size']) for dataloader in self.dataloader_store]
+        self.current_step_dataloaders = [0 for _ in range(len(self.dataloader_store))]
     
     def get_next_subject_trial_id(self):
+        non_empty_dataloaders = [i for i in range(len(self.dataloader_store)) if self.current_step_dataloaders[i] < self.total_steps_dataloaders[i]]
         if not self.randomize_subject_trials:
-            self.current_subject_trial_i += 1
-            return self.current_subject_trial_i
+            return non_empty_dataloaders[0]
         else:
-            return np.random.randint(len(self.subject_trials))
+            return np.random.randint(len(non_empty_dataloaders))
     def have_next_subject_trial(self):
         return self.current_step < self.total_steps
     def reset(self):
         self.current_step = 0
-        self.current_subject_trial_i = -1
+        self.current_step_dataloaders = [0 for _ in range(len(self.dataloader_store))]
         for dataloader in self.dataloader_store:
             dataloader.reset()
 

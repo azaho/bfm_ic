@@ -11,10 +11,12 @@ conda activate venv
 
 # Define arrays for each hyperparameter
 dtype_array=('bfloat16')
-lr_array=(0.001 0.0005 0.00075)
+lr_array=(0.001)
+wd_array=(0.000, 0.001, 0.0001)
 # Calculate indices for each hyperparameter
 index=$SLURM_ARRAY_TASK_ID
 dtype_index=$((index / 3))
-lr_index=$((index % 3))
+lr_index=0
+wd_index=$((index % 3))
 
-python ttt.py --dtype ${dtype_array[dtype_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --wait_n_intervals $SLURM_ARRAY_TASK_ID
+python ttt.py --dtype ${dtype_array[dtype_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --wait_n_intervals $SLURM_ARRAY_TASK_ID
