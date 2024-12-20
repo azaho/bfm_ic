@@ -25,7 +25,7 @@ args.lrwm = 0
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
 args.optimizer = 'AdamW'
-args.max_gradient_norm = -1
+args.max_gradient_norm = 1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
