@@ -14,7 +14,7 @@ conda activate venv
 dtype_array=('bfloat16')
 lr_array=(0.001 0.002)
 wd_array=(0.000)
-max_gradient_norm_array=(0.5 0.2 0.1)
+max_gradient_norm_array=(0.5 0.2 -1)
 # Calculate indices for each hyperparameter
 index=$SLURM_ARRAY_TASK_ID
 dtype_index=0
