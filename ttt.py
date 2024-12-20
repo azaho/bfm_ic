@@ -20,9 +20,10 @@ args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 6
 args.dr = 0.2
-args.rs = ""  # Added random string parameter
-args.lrwm = 0  # Added learning rate warmup steps parameter
+args.rs = "" 
+args.lrwm = 0 
 args.wait_n_intervals = 0
+args.weight_decay = 0.000
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -34,9 +35,10 @@ if __name__ == '__main__':
     parser.add_argument('--dtype', type=str, default=args.dtype, choices=['bfloat16', 'float32'], help='Data type')
     parser.add_argument('--nh', type=int, default=args.nh, help='Number of attention heads')
     parser.add_argument('--dr', type=float, default=args.dr, help='Dropout rate')
-    parser.add_argument('--rs', type=str, default=args.rs, help='Random string')  # Added random string argument
-    parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps')  # Added warmup steps argument
+    parser.add_argument('--rs', type=str, default=args.rs, help='Random string') 
+    parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps') 
     parser.add_argument('--wait_n_intervals', type=int, default=args.wait_n_intervals, help='Wait n intervals (for many jobs)')
+    parser.add_argument('--weight_decay', type=float, default=args.weight_decay, help='Weight decay')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     if args.wait_n_intervals > 0:
@@ -51,13 +53,13 @@ training_config = {
     'save_losses_every_n_batches': 20,
 
     'batch_size': args.bs,
-    'train_subject_trials': [(2, 4)],#subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
     'lr_warmup_steps': args.lrwm,
-    'weight_decay': 0.000,
-    'random_string': args.rs,  # Using random string from args
+    'weight_decay': args.weight_decay,
+    'random_string': args.rs,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 
