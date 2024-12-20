@@ -17,4 +17,4 @@ index=$SLURM_ARRAY_TASK_ID
 dtype_index=$((index % 2))
 lr_index=$((index / 2))
 
-python ttt.py --dtype ${dtype_array[dtype_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]}
+python ttt.py --dtype ${dtype_array[dtype_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --wait_10s_intervals $SLURM_ARRAY_TASK_ID

@@ -22,6 +22,7 @@ args.nh = 6
 args.dr = 0.2
 args.rs = ""  # Added random string parameter
 args.lrwm = 0  # Added learning rate warmup steps parameter
+args.wait_10s_intervals = 0
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -35,8 +36,14 @@ if __name__ == '__main__':
     parser.add_argument('--dr', type=float, default=args.dr, help='Dropout rate')
     parser.add_argument('--rs', type=str, default=args.rs, help='Random string')  # Added random string argument
     parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps')  # Added warmup steps argument
+    parser.add_argument('--wait_10s_intervals', type=int, default=args.wait_10s_intervals, help='Wait 10s intervals (for many jobs)')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
+    if args.wait_10s_intervals > 0:
+        print(f"Waiting {args.wait_10s_intervals} 10s intervals")
+        for i in range(args.wait_10s_intervals):
+            print(f"Waiting {i+1} of {args.wait_10s_intervals}")
+            time.sleep(10)
 
 training_config = {
     'n_epochs': 240,
