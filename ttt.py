@@ -70,7 +70,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 
 transformer_config = {
     'model_name': "trx",
-    'max_n_electrodes': 13,#158,
+    'max_n_electrodes': 130,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 10, # 1 second of time (every bin is 125 ms)
     'd_model': args.dm,
