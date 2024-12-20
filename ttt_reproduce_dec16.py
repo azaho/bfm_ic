@@ -21,7 +21,7 @@ args.dtype = 'float32'
 args.nh = 6
 args.dr = 0.2
 args.rs = "XX"  # Added random string parameter
-args.lrwm = 100  # Added learning rate warmup steps parameter
+args.lrwm = 0  # Added learning rate warmup steps parameter
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
