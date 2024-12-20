@@ -19,7 +19,7 @@ max_gradient_norm_array=(0.5 0.2 0.1)
 index=$SLURM_ARRAY_TASK_ID
 dtype_index=1
 wd_index=1
-lr_index=$(((index / 3))
+lr_index=$((index / 3))
 max_gradient_norm_index=$((index % 3))
 
 python ttt.py --dtype ${dtype_array[dtype_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --max_gradient_norm ${max_gradient_norm_array[max_gradient_norm_index]} --wait_n_intervals $SLURM_ARRAY_TASK_ID
