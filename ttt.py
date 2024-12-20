@@ -77,6 +77,16 @@ transformer_config = {
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 transformer_config['dim_output'] = transformer_config['n_freq_features']
 
+# Set all random seeds for reproducibility
+if (not ('random_string' in training_config)) or (len(training_config['random_string']) == 0):
+    training_config['random_string'] = str(time.time())[-3:]
+random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
+random_seed **= 2
+random_seed %= 2**32
+training_config['random_seed'] = random_seed
+torch.manual_seed(random_seed)
+np.random.seed(random_seed)
+
 def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
@@ -93,16 +103,6 @@ def update_dir_name():
     dir_name += f"_r{training_config['random_string']}"
     return dir_name
 dir_name = update_dir_name()
-
-# Set all random seeds for reproducibility
-if (not ('random_string' in training_config)) or (len(training_config['random_string']) == 0):
-    training_config['random_string'] = str(time.time())[-3:]
-random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
-random_seed **= 2
-random_seed %= 2**32
-training_config['random_seed'] = random_seed
-torch.manual_seed(random_seed)
-np.random.seed(random_seed)
 
 class BrainTreebankSubjectTrialDataLoader:
     def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True):
