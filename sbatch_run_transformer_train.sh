@@ -17,8 +17,8 @@ wd_array=(0.000)
 max_gradient_norm_array=(0.5 0.2 0.1)
 # Calculate indices for each hyperparameter
 index=$SLURM_ARRAY_TASK_ID
-dtype_index=1
-wd_index=1
+dtype_index=0
+wd_index=0
 lr_index=$((index / 3))
 max_gradient_norm_index=$((index % 3))
 
