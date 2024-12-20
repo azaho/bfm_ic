@@ -25,7 +25,7 @@ args.lrwm = 0
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
 args.optimizer = 'AdamW'
-args.max_gradient_norm = 1
+args.max_gradient_norm = -1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -52,7 +52,7 @@ if __name__ == '__main__':
             time.sleep(1)
 
 training_config = {
-    'n_epochs': 240,
+    'n_epochs': 120,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
 
