@@ -5,6 +5,17 @@ all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2
 
 #####
 
+for sub_id, trial_id in all_subject_trials:
+    persistence_mse_array = []
+    for chunk_id in range(10):
+        chunk_path = f"braintreebank_data_chunks/subject{sub_id}_trial{trial_id}_chunk{chunk_id}.npy"
+        chunk_data = np.load(chunk_path) # (n_electrodes, n_time_bins, n_freq_features)
+        persistence_mse = np.mean((chunk_data[:, 1:, :] - chunk_data[:, :-1, :])**2)
+        persistence_mse_array.append(persistence_mse)
+    print(f"Subject {sub_id} trial {trial_id} mean persistence MSE: {np.mean(persistence_mse_array)}")
+
+#####
+
 from braintreebank_process_chunks import *
 
 for sub_id, trial_id in all_subject_trials:
