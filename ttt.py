@@ -349,7 +349,7 @@ if __name__ == "__main__":
             # Get model output on full data
             output = model(data[:, :, :, :-1, :], electrode_emb)
             loss = ((output-data[:, :, :, 1:, :])**2).mean()
-            gradient_norm = torch.norm(torch.stack([torch.norm(p.grad) for p in all_params if p.grad is not None]), 2)
+            gradient_norm = torch.norm(torch.tensor([torch.norm(p.grad, 2).item() for p in all_params if p.grad is not None]), 2)
 
             with torch.no_grad():
                 loss_per_electrode = ((output-data[:, :, :, 1:, :])**2).mean(dim=[0, 1, 3, 4]).to('cpu').tolist()
