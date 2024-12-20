@@ -20,7 +20,7 @@ args.mt = 'mask-out-none'
 args.dtype = 'float32'
 args.nh = 6
 args.dr = 0.2
-args.rs = ""  # Added random string parameter
+args.rs = "XX"  # Added random string parameter
 args.lrwm = 0  # Added learning rate warmup steps parameter
 args.wait_10s_intervals = 0
 if __name__ == '__main__':
@@ -96,9 +96,11 @@ dir_name = update_dir_name()
 
 # Set all random seeds for reproducibility
 if ('random_string' in training_config) and (len(training_config['random_string']) > 0):
-    training_config['random_seed'] = int(training_config['random_string'], 36)
-    torch.manual_seed(training_config['random_seed'])
-    np.random.seed(training_config['random_seed'])
+    random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
+    random_seed **= 2
+    training_config['random_seed'] = random_seed
+    torch.manual_seed(random_seed)
+    np.random.seed(random_seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(training_config['random_seed'])
         torch.cuda.manual_seed_all(training_config['random_seed'])
