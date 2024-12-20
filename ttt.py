@@ -200,9 +200,11 @@ class BrainTreebankDataLoader:
     def get_next_subject_trial_id(self):
         non_empty_dataloaders = [i for i in range(len(self.dataloader_store)) if self.current_step_dataloaders[i] < self.total_steps_dataloaders[i]]
         if not self.randomize_subject_trials:
-            return non_empty_dataloaders[0]
+            selected_dataloader_i = non_empty_dataloaders[0]
         else:
-            return non_empty_dataloaders[np.random.randint(len(non_empty_dataloaders))]
+            selected_dataloader_i = non_empty_dataloaders[np.random.randint(len(non_empty_dataloaders))]
+        self.current_step_dataloaders[selected_dataloader_i] += 1
+        return selected_dataloader_i
     def have_next_subject_trial(self):
         return self.current_step < self.total_steps
     def reset(self):
