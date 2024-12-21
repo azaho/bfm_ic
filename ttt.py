@@ -9,23 +9,25 @@ print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
+wandb_log = False
 
 args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 50
-args.nl = 5
+args.nl = 10
 args.dm = 120
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 6
 args.dr = 0.2
 args.rs = "" 
-args.lrwm = 0 
+args.lrwm = 1000
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
 args.optimizer = 'AdamW'
 args.max_gradient_norm = -1
+args.electrode_embedding_init = 'normal'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -43,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=args.weight_decay, help='Weight decay')
     parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW'], help='Optimizer type') # TODO: add Muon
     parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
+    parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     if args.wait_n_intervals > 0:
@@ -52,7 +55,7 @@ if __name__ == '__main__':
             time.sleep(1)
 
 training_config = {
-    'n_epochs': 240,
+    'n_epochs': 2000,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
 
@@ -81,6 +84,7 @@ transformer_config = {
     'dtype': getattr(torch, args.dtype),
     'device': device,
     'optimizer': args.optimizer,
+    'electrode_embedding_init': args.electrode_embedding_init,
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 transformer_config['dim_output'] = transformer_config['n_freq_features']
@@ -237,7 +241,8 @@ class BrainTreebankDataLoader:
         for i in range(len(self.subject_trials)):
             subject_id, trial_id = self.subject_trials[i]
             if subject_id not in self.subject_electrode_emb_store:
-                embedding = torch.randn(min(self.dataloader_store[i].n_electrodes, self.trim_electrodes_to), transformer_config['d_model'])
+                torch_fun = torch.randn if transformer_config['electrode_embedding_init'] == 'normal' else torch.zeros
+                embedding = torch_fun(min(self.dataloader_store[i].n_electrodes, self.trim_electrodes_to), transformer_config['d_model'])
                 embedding = embedding.to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model'])
                 self.subject_electrode_emb_store[subject_id] = torch.nn.Parameter(embedding)
         #self.electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
@@ -300,7 +305,14 @@ if __name__ == "__main__":
         training_config['lr_warmup_steps'] = training_config['lr_warmup_frac'] * total_steps
 
     all_params = list(model.parameters()) + dataloader.parameters()
-    optimizer = torch.optim.Adam(all_params, lr=training_config['lr_max'], weight_decay=training_config['weight_decay'])
+    optimizers = []
+    if transformer_config['optimizer'] == 'Muon':
+        matrix_params = [p for p in all_params if p.ndim >= 2]
+        other_params = [p for p in all_params if p.ndim < 2]
+        optimizers.append(Muon(matrix_params, lr=training_config['lr_max'], momentum=0.95, nesterov=True, backend='newtonschulz5', backend_steps=5))
+        optimizers.append(torch.optim.Adam(other_params, lr=training_config['lr_max'], weight_decay=training_config['weight_decay']))
+    else:
+        optimizers = [torch.optim.Adam(all_params, lr=training_config['lr_max'], weight_decay=training_config['weight_decay'])]
 
     # Learning rate schedule
     warmup_steps = int(training_config['lr_warmup_steps'])
@@ -316,22 +328,23 @@ if __name__ == "__main__":
             progress = (step - warmup_steps) / (total_steps - warmup_steps)
             cosine_decay = 0.5 * (1 + torch.cos(torch.tensor(progress * 3.141592653589793)))
             return cosine_decay * (1 - lr_min / lr_max) + lr_min / lr_max
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    schedulers = [torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda) for optimizer in optimizers]
 
     # start a new wandb run to track this script
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="bfm",
-        name=dir_name.split('/')[-1],
-        id=dir_name.split('/')[-1],
+    if wandb_log:
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="bfm",
+            name=dir_name.split('/')[-1],
+            id=dir_name.split('/')[-1],
 
-        # track hyperparameters and run metadata
-        config={
-            "training_config": training_config,
-            "transformer_config": transformer_config,
-        },
-        settings=wandb.Settings(init_timeout=120)
-    )
+            # track hyperparameters and run metadata
+            config={
+                "training_config": training_config,
+                "transformer_config": transformer_config,
+            },
+            settings=wandb.Settings(init_timeout=120)
+        )
 
     loss_store = []
     gradient_norm_store = []
@@ -342,6 +355,9 @@ if __name__ == "__main__":
     for epoch_i in range(training_config['n_epochs']):
         dataloader.reset()
         for batch_i in range(len(dataloader)):
+            for optimizer, scheduler in zip(optimizers, schedulers):
+                optimizer.zero_grad()
+
             overall_batch_i += 1
             data, electrode_emb, subject_trial = dataloader.get_next_batch(training_config['batch_size'])
             subject_i, trial_i = subject_trial
@@ -367,16 +383,17 @@ if __name__ == "__main__":
                 torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
 
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
-            wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
+            if wandb_log:
+                wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
 
             loss_store.append(loss.item())
             epoch_batch_store.append((epoch_i, batch_i))
             subject_trial_store.append(subject_trial)
             gradient_norm_store.append(gradient_norm.item())
 
-            optimizer.step()
-            optimizer.zero_grad()
-            scheduler.step()
+            for optimizer, scheduler in zip(optimizers, schedulers):
+                optimizer.step()
+                scheduler.step()
 
             # Save losses every 20 batches
             if (overall_batch_i+1) % training_config['save_losses_every_n_batches'] == 0:
@@ -402,4 +419,5 @@ if __name__ == "__main__":
         if (epoch_i + 1) % training_config['save_network_every_n_epochs'] == 0:
             torch.save(model.state_dict(), f'{dir_name}/model_state_dict_epoch{epoch_i+1}.pth')
             print(f"Saved model checkpoint for epoch {epoch_i+1}")
-    wandb.finish()
+    if wandb_log:
+        wandb.finish()
