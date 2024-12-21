@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--lrwm', type=int, default=args.lrwm, help='Learning rate warmup steps') 
     parser.add_argument('--wait_n_intervals', type=int, default=args.wait_n_intervals, help='Wait n intervals (for many jobs)')
     parser.add_argument('--weight_decay', type=float, default=args.weight_decay, help='Weight decay')
-    parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW'], help='Optimizer type') # TODO: add Muon
+    parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW', 'Muon'], help='Optimizer type') # TODO: add Muon
     parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
     args = parser.parse_args()
