@@ -14,11 +14,11 @@ args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 100
-args.nl = 10
-args.dm = 240
+args.nl = 20
+args.dm = 640
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
-args.nh = 10
+args.nh = 16
 args.dr = 0.0
 args.rs = "" 
 args.lrwm = 0
@@ -88,9 +88,9 @@ wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
     'model_name': "sim",
-    'max_n_electrodes': 110,#158,
+    'max_n_electrodes': 300,#158,
     'n_freq_features': 37,
-    'max_n_time_bins': 10, # 1 second of time (every bin is 125 ms)
+    'max_n_time_bins': 40, # 1 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
     'n_layers': args.nl,
