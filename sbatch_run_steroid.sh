@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --job-name=brain foundation model training          # Name of the job
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=16G    # memory per cpu-core
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
