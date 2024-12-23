@@ -39,4 +39,4 @@ random_string=$((index % 2))
 python ttt.py --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
 --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} \
 --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay $wd --max_gradient_norm $max_gradient_norm \
---subjects ${subjects_array[subjects_index]} --wait_n_intervals $SLURM_ARRAY_TASK_ID --wandb_project bfm --rs $random_string --wandb_project bfm_steroids_allsub
+--subjects ${subjects_array[subjects_index]} --wait_n_intervals $SLURM_ARRAY_TASK_ID --wandb_project bfm --rs $random_string --wandb_project bfm_steroids_allsub1
