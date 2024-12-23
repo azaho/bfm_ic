@@ -62,7 +62,7 @@ training_config = {
     'save_losses_every_n_batches': 20,
 
     'batch_size': args.bs,
-    'train_subject_trials': subject_2_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': subject_1_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
