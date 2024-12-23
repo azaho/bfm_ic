@@ -430,6 +430,9 @@ if __name__ == "__main__":
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
             loss.backward()
+            for param in all_params:
+                if param.grad is None:
+                    param.grad = torch.zeros_like(param)
             gradient_norm = torch.norm(torch.tensor([torch.norm(p.grad, 2).item() for p in all_params if p.grad is not None]), 2)
             if training_config['max_gradient_norm'] > 0:
                 torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
