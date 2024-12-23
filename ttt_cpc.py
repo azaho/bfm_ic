@@ -445,6 +445,7 @@ if __name__ == "__main__":
             time_per_step = (time.time() - training_start_time) / max(steps_done, 1)
             time_remaining = time_per_step * (training_config['total_steps'] - steps_done)
             time_str = f"{int(time_remaining//3600):02d}:{int((time_remaining%3600)//60):02d}:{int(time_remaining%60):02d}"
+            current_time_str = f"{int(time.time()//3600):02d}:{int((time.time()%3600)//60):02d}:{int(time.time()%60):02d}"
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
             loss.backward()
@@ -465,8 +466,8 @@ if __name__ == "__main__":
                         subject_trial_dataloader = dataloader.dataloader_store[subject_trial_id]
                         electrode_emb = dataloader.subject_electrode_emb_store[subject_id]
                         subject_trial_dataloader.reset_test()
-                        test_loss_store = []
-                        for batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
+                        batch_test_loss_store = []
+                        for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
                             test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
                             
                             electrode_output = electrode_transformer(test_data[:, :, :, :, :], electrode_emb) 
@@ -474,13 +475,15 @@ if __name__ == "__main__":
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
                             test_loss = ((time_output[:, :, :, :-1, :] - time_output[:, :, :, 1:, :].detach())**2).mean()
-                            test_loss_store.append(test_loss.item())
-                        test_loss = np.mean(test_loss_store)
+                            batch_test_loss_store.append(test_loss.item())
+                            if np.isnan(test_loss.item()):
+                                print(f"Test loss is NaN for subject {subject_id} trial {trial_id} test_batch {test_batch_i}")
+                        test_loss = np.nanmean(batch_test_loss_store)
                         subject_trial_test_loss_store.append(test_loss)
-                overall_test_loss = np.mean(subject_trial_test_loss_store).item()
+                overall_test_loss = np.nanmean(subject_trial_test_loss_store).item()
                 print(f"Test loss: {overall_test_loss}")
 
-            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str}")
+            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
             if wandb_log:
                 log_dict = {
                     "loss": loss.item(),

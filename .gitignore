@@ -1,6 +1,7 @@
 braintreebank/
 braintreebank_zip/
 braintreebank_data_chunks/
+braintreebank_benchmark_data_chunks/
 presentation/
 training_results/
 venv/
