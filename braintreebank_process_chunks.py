@@ -107,7 +107,7 @@ if __name__ == "__main__":
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
     nperseg = 256 # TODO: move to braintreebank_config.py
-    window_length = nperseg * 8 * 10 * 10 # 100 seconds per chunk, to have fewer files
+    window_length = nperseg * 8 * 10 * 18 # 180 seconds per chunk, to have fewer files
     process_subject_ids = [sub_id] if sub_id > 0 else range(1, 11)
     for sub_id in process_subject_ids:
         process_trial_ids = [trial_id] if trial_id >= 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject

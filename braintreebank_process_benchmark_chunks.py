@@ -149,7 +149,7 @@ if __name__ == "__main__":
     parser.add_argument('--trial_id', type=int, required=False, help='Trial ID', default=-1)
     parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=LAPLACIAN_REREFERENCED)
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
-    parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_data_chunks")
+    parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_benchmark_data_chunks")
     args = parser.parse_args()
     sub_id = args.sub_id
     trial_id = args.trial_id
@@ -164,6 +164,6 @@ if __name__ == "__main__":
         process_trial_ids = [trial_id] if trial_id >= 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject
         if (sub_id == 6) and (trial_id < 0): process_trial_ids = [0, 1, 4] # special case for subject 6 that only has trials 0, 1, and 4
         for trial_id in process_trial_ids:
-            words_df = obtain_aligned_words_df(sub_id, trial_id, save_to_dir="braintreebank_benchmark_data_chunks")
+            words_df = obtain_aligned_words_df(sub_id, trial_id, save_to_dir=save_to_dir)
             process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, 
                                   global_per_electrode_normalizing_params=True, save_to_dir=save_to_dir, nperseg=nperseg)
