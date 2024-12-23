@@ -15,7 +15,7 @@ source .venv/bin/activate
 # Define arrays for each hyperparameter
 dtype_array=('bfloat16')
 optimizer_array=('Muon')
-electrode_init_array=('zeros')
+electrode_init_array=('normal')
 dropout_array=(0.0)
 batch_size_array=(100)
 subjects_array=('1' '2' '12' '123' '1234567890' '12345')

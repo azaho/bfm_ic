@@ -90,7 +90,7 @@ transformer_config = {
     'model_name': "sim",
     'max_n_electrodes': 300,#158,
     'n_freq_features': 37,
-    'max_n_time_bins': 40, # 1 second of time (every bin is 125 ms)
+    'max_n_time_bins': 20, # 1 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
     'n_layers': args.nl,
