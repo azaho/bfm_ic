@@ -2,6 +2,9 @@ import torch, numpy as np, json, os, time
 from transformer_architecture_cpc import ElectrodeTransformer, TimeTransformer
 import argparse
 import wandb
+import pandas as pd
+from scipy import stats
+import scipy
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -15,7 +18,7 @@ args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 100
 args.nl = 20
-args.dm = 768
+args.dm = 384
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 12
@@ -24,7 +27,7 @@ args.rs = ""
 args.lrwm = 0
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
-args.optimizer = 'AdamW'
+args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
@@ -69,7 +72,8 @@ training_config = {
     'n_epochs': 200,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
-    'save_test_losses_every_n_batches': 1000,
+    'save_test_losses_every_n_batches': 1, # XXX
+    'save_eval_every_n_batches': 1,
     'p_test_chunks': 0.05,
 
     'batch_size': args.bs,
@@ -90,7 +94,7 @@ transformer_config = {
     'model_name': "sim",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
-    'max_n_time_bins': 25, # 1 second of time (every bin is 125 ms)
+    'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
     'n_layers': args.nl,
@@ -329,6 +333,32 @@ class BrainTreebankDataLoader:
         self.current_step += 1
         return self.dataloader_store[subject_trial_id].get_next_batch(batch_size), self.subject_electrode_emb_store[subject_id], (subject_id, trial_id)
 
+class BrainTreebankSubjectTrialBenchmarkDataLoader:
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda'):
+        self.subject_id = subject_id
+        self.trial_id = trial_id
+        self.trim_electrodes_to = trim_electrodes_to
+        self.device = device
+        self.n_time_bins = transformer_config['max_n_time_bins']
+
+    def get_chunk_input(self, chunk_id):
+        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+        chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+        return chunk_data.unsqueeze(1) 
+    
+    def get_chunk_labels(self, chunk_id, label_type='rms'):
+        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
+        chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
+        return chunk_labels
+
+# if __name__ == "__main__":
+#     subject_id = 2
+#     trial_id = 5
+#     dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(subject_id, trial_id, device=device)
+#     dataloader.get_chunk_input(2)
+#     dataloader.get_chunk_labels(2)
+#     exit()
+
 if __name__ == "__main__":
     # Create directory if it doesn't exist
     os.makedirs(dir_name, exist_ok=True)
@@ -483,6 +513,72 @@ if __name__ == "__main__":
                 overall_test_loss = np.nanmean(subject_trial_test_loss_store).item()
                 print(f"Test loss: {overall_test_loss}")
 
+            if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
+                with torch.no_grad():
+                    train_chunks = [10, 11, 12]
+                    test_chunks = [13, 14, 15]
+                    eval_subject_id = 2
+                    eval_trial_id = 1
+                    dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
+                    # Collect features and labels for training chunks
+                    train_features_electrode = []
+                    train_features_time = []
+                    train_labels = []
+                    for train_chunk in train_chunks:
+                        eval_input = dataloader.get_chunk_input(train_chunk)
+                        train_labels.append(dataloader.get_chunk_labels(train_chunk))
+
+                        electrode_output = electrode_transformer(eval_input[:, :, :, :, :], electrode_emb)
+                        electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
+                        time_output = time_transformer(electrode_output)
+                        
+                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        train_features_electrode.append(electrode_output_mean)
+                        train_features_time.append(time_output_mean)
+
+                    # Collect features and labels for test chunks  
+                    test_features_electrode = []
+                    test_features_time = []
+                    test_labels = []
+                    for test_chunk in test_chunks:
+                        eval_input = dataloader.get_chunk_input(test_chunk)
+                        test_labels.append(dataloader.get_chunk_labels(test_chunk))
+
+                        electrode_output = electrode_transformer(eval_input[:, :, :, :, :], electrode_emb)
+                        electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
+                        time_output = time_transformer(electrode_output) # shape: (n_chunks, 1, 1, n_time_bins, d_model)
+                        
+                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        test_features_electrode.append(electrode_output_mean)
+                        test_features_time.append(time_output_mean)
+
+                    # Convert lists to arrays
+                    train_features_electrode = np.concatenate(train_features_electrode)
+                    train_features_time = np.concatenate(train_features_time)
+                    train_labels = np.concatenate(train_labels)
+                    test_features_electrode = np.concatenate(test_features_electrode)
+                    test_features_time = np.concatenate(test_features_time)
+                    test_labels = np.concatenate(test_labels)
+
+                    # Fit linear regression and evaluate using electrode features
+                    slope_e, intercept_e, r_value_e, p_value_e, std_err_e = stats.linregress(train_features_electrode, train_labels)
+                    train_r_squared_electrode = r_value_e ** 2
+                    test_predicted_electrode = slope_e * test_features_electrode + intercept_e
+                    test_r_value_electrode = stats.pearsonr(test_labels, test_predicted_electrode)[0]
+                    test_r_squared_electrode = test_r_value_electrode ** 2
+
+                    # Fit linear regression and evaluate using time features
+                    slope_t, intercept_t, r_value_t, p_value_t, std_err_t = stats.linregress(train_features_time, train_labels)
+                    train_r_squared_time = r_value_t ** 2
+                    test_predicted_time = slope_t * test_features_time + intercept_t
+                    test_r_value_time = stats.pearsonr(test_labels, test_predicted_time)[0]
+                    test_r_squared_time = test_r_value_time ** 2
+
+                    print(f"Electrode features -- Train R-squared: {train_r_squared_electrode:.4f} -- Test R-squared: {test_r_squared_electrode:.4f} -- Time features -- Train R-squared: {train_r_squared_time:.4f} -- Test R-squared: {test_r_squared_time:.4f}")
+
+
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
             if wandb_log:
                 log_dict = {
@@ -492,6 +588,11 @@ if __name__ == "__main__":
                 }
                 if overall_test_loss is not None:
                     log_dict['test_loss'] = overall_test_loss
+                if train_r_squared_electrode is not None:
+                    log_dict['eval_train_r2_electrode'] = train_r_squared_electrode
+                    log_dict['eval_test_r2_electrode'] = test_r_squared_electrode
+                    log_dict['eval_train_r2_time'] = train_r_squared_time
+                    log_dict['eval_test_r2_time'] = test_r_squared_time
                 wandb.log(log_dict)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
