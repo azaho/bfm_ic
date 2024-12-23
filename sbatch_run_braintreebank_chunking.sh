@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=brain BFM data prep          # Name of the job
+#SBATCH --job-name=bfm_data_prep          # Name of the job
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=16G    # memory per cpu-core
 #SBATCH -t 8:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
