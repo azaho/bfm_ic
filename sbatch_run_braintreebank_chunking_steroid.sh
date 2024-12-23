@@ -1,12 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=brain BFM data prep          # Name of the job
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=16G    # memory per cpu-core
 #SBATCH -t 8:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=1-10       # 2000 total combinations (4*5*4*5*5)
-#SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
+#SBATCH --output /om/user/zaho/bfm_ic/reports/slurm-%A_%a.out # STDOUT
+export PATH="/om2/user/zaho/anaconda3/bin:/om2/user/zaho/anaconda3/condabin:$PATH"
+eval "$(conda shell.bash hook)"
+conda activate venv
 
-source .venv/bin/activate
 export HDF5_USE_FILE_LOCKING=FALSE
 
 # Define arrays for each hyperparameter
