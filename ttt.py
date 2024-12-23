@@ -9,25 +9,26 @@ print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
-wandb_log = True
+subject_1_trials = [(1, 0), (1, 1), (1, 2)]
 
 args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
-args.bs = 50
+args.bs = 100
 args.nl = 10
 args.dm = 120
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 6
-args.dr = 0.2
+args.dr = 0.0
 args.rs = "" 
-args.lrwm = 1000
+args.lrwm = 0
 args.wait_n_intervals = 0
 args.weight_decay = 0.000
 args.optimizer = 'AdamW'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
+args.wandb_project = ""
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -46,6 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW', 'Muon'], help='Optimizer type') # TODO: add Muon
     parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
+    parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     if args.wait_n_intervals > 0:
@@ -68,8 +70,10 @@ training_config = {
     'weight_decay': args.weight_decay,
     'random_string': args.rs,
     'max_gradient_norm': args.max_gradient_norm,
+    'wandb_project': args.wandb_project,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
+wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
     'model_name': "trx",
@@ -119,6 +123,7 @@ def update_dir_name():
     dir_name += f"_r{training_config['random_string']}"
     return dir_name
 dir_name = update_dir_name()
+training_config['dir_name'] = dir_name
 
 def zeroth_power_via_newtonschulz5(G, steps=5, eps=1e-7):
     assert len(G.shape) == 2
@@ -337,7 +342,7 @@ if __name__ == "__main__":
     if wandb_log:
         wandb.init(
             # set the wandb project where this run will be logged
-            project="bfm",
+            project=args.wandb_project,
             name=dir_name.split('/')[-1],
             id=dir_name.split('/')[-1],
 
@@ -385,7 +390,7 @@ if __name__ == "__main__":
             if training_config['max_gradient_norm'] > 0:
                 torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
 
-            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']}\n\tLoss: {loss.item():.4f}\n\tGPU mem: {gpu_mem_used:.0f}MB\n\tTime left: {time_str}")
+            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str}")
             if wandb_log:
                 wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
 

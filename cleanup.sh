@@ -1,4 +1,5 @@
 scancel -u zaho
+scancel -u anzah
 rm -r training_results/*
 rm -r reports/*
 rm -r wandb/*
