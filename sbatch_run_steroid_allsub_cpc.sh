@@ -30,7 +30,7 @@ batch_size_index=0
 optimizer_index=0
 electrode_init_index=0
 lr_index=0
-random_string='13371'
+random_string='1338'
 
 # Calculate indices for each hyperparameter
 index=$SLURM_ARRAY_TASK_ID
