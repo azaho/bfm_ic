@@ -442,7 +442,10 @@ if __name__ == "__main__":
                 # Calculate test loss
                 subject_trial_test_loss_store = []
                 with torch.no_grad():
-                    for subject_trial_dataloader in dataloader.dataloader_store:
+                    for subject_trial_id in range(len(dataloader.subject_trials)):
+                        subject_id, trial_id = dataloader.subject_trials[subject_trial_id]
+                        subject_trial_dataloader = dataloader.dataloader_store[subject_trial_id]
+                        electrode_emb = dataloader.subject_electrode_emb_store[subject_id]
                         subject_trial_dataloader.reset_test()
                         test_loss_store = []
                         for batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
