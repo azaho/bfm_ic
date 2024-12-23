@@ -3,7 +3,7 @@
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=16G    # memory per cpu-core
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-30      # 66 total combinations (2*2*2*2*2*2)
+#SBATCH --array=0-17      # 66 total combinations (2*2*2*2*2*2)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 #SBATCH --gres=gpu:1
 
