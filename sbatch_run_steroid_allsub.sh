@@ -3,7 +3,7 @@
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=16G    # memory per cpu-core
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-65      # 66 total combinations (2*2*2*2*2*2)
+#SBATCH --array=0-35      # 66 total combinations (2*2*2*2*2*2)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 #SBATCH --gres=gpu:1
 
@@ -18,7 +18,7 @@ optimizer_array=('Muon')
 electrode_init_array=('zeros')
 dropout_array=(0.0)
 batch_size_array=(100)
-subjects_array=('1' '2' '12' '123' '1234' '12345' '123456' '1234567' '12345678' '123456789' '1234567890')
+subjects_array=('1' '2' '12' '123' '1234567890' '12345')
 lr_array=(0.001 0.002 0.0005)
 # Fixed parameters
 wd=0
