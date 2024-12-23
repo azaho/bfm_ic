@@ -78,7 +78,7 @@ class SEEGTransformer(nn.Module):
             electrode_mask = (indices.unsqueeze(0) >= indices.unsqueeze(1))
             electrode_time_mask = torch.ones((self.config['max_n_time_bins'], self.config['max_n_time_bins']), dtype=torch.bool, device=self.device)
         elif self.config['mask_type'] == 'mask-out-none':
-            electrode_mask = torch.zeros_like(indices.unsqueeze(0) >= indices.unsqueeze(1), dtype=torch.bool, device=self.device)
+            electrode_mask = (indices.unsqueeze(0) >= indices.unsqueeze(1))
             electrode_time_mask = torch.eye(self.config['max_n_time_bins'], dtype=torch.bool, device=self.device)
         else:
             raise ValueError(f"Invalid mask type: {self.mask_type}")

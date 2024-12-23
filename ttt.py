@@ -8,8 +8,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
-subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
-subject_1_trials = [(1, 0), (1, 1), (1, 2)]
+#subject_2_trials = [(2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6)]
+#subject_1_trials = [(1, 0), (1, 1), (1, 2)]
+#all_subject_trials = [(2, 4), (3, 1)]
 
 args = argparse.Namespace()
 args.lrmax = 0.001
@@ -29,6 +30,7 @@ args.optimizer = 'AdamW'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
+args.subjects = "1"
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -48,21 +50,32 @@ if __name__ == '__main__':
     parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
+    parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
+    assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
+    assert len(args.subjects) > 0, "Subjects parameter must contain at least one subject"
     if args.wait_n_intervals > 0:
         print(f"Waiting {args.wait_n_intervals} intervals")
         for i in range(args.wait_n_intervals):
             print(f"Waiting {i+1} of {args.wait_n_intervals}")
             time.sleep(1)
 
+train_subject_trials = []
+for subject in args.subjects:
+    if subject == '0': subject = 10
+    else: subject = int(subject)
+    train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject)
+
 training_config = {
-    'n_epochs': 2000,
+    'n_epochs': 200,
     'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
+    'save_test_losses_every_n_batches': 1000,
+    'p_test_chunks': 0.05,
 
     'batch_size': args.bs,
-    'train_subject_trials': subject_1_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
+    'train_subject_trials': train_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
     'lr_min': args.lrmin,
     #'lr_warmup_frac': 0.01, # need to specify either warmup frac or steps
@@ -105,6 +118,7 @@ np.random.seed(random_seed)
 
 def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
+    dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"
     dir_name += f"_nh{transformer_config['n_heads']}"
@@ -169,12 +183,11 @@ class Muon(torch.optim.Optimizer):
                 p.data.add_(g, alpha=-lr)
 
 class BrainTreebankSubjectTrialDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
-        self.chunks = []
         self.n_time_bins = transformer_config['max_n_time_bins']
         # Load metadata
         metadata_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}.json"
@@ -188,12 +201,17 @@ class BrainTreebankSubjectTrialDataLoader:
         self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
         self.n_freq_features = self.metadata['n_freq_features'] if 'n_freq_features' in self.metadata else transformer_config['n_freq_features']
 
-        self.all_chunk_ids = np.arange(self.n_chunks)
-        self.already_loaded_chunk_ids = []
+        self.test_chunk_ids = np.random.choice(self.n_chunks, size=int(self.n_chunks*p_test_chunks), replace=False)
+        self.train_chunk_ids = np.setdiff1d(np.arange(self.n_chunks), self.test_chunk_ids)
         self.randomize_chunk_order = randomize_chunk_order
         if self.randomize_chunk_order:
-            np.random.shuffle(self.all_chunk_ids)
-        self.current_chunk = 0
+            np.random.shuffle(self.train_chunk_ids)
+            np.random.shuffle(self.test_chunk_ids)
+        self.current_train_chunk = 0
+        self.current_test_chunk = 0
+        
+        self.train_chunks = []
+        self.test_chunks = []
 
     def _load_chunk(self, chunk_id):
         chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
@@ -201,38 +219,61 @@ class BrainTreebankSubjectTrialDataLoader:
         return chunk_data.unsqueeze(0)
     
     def _get_next_chunk_id(self):
-        self.current_chunk += 1
-        return self.all_chunk_ids[self.current_chunk-1]
+        self.current_train_chunk += 1
+        return self.train_chunk_ids[self.current_train_chunk-1]
     def _have_next_chunk(self):
-        return self.current_chunk < self.n_chunks
+        return self.current_train_chunk < len(self.train_chunk_ids)
+    
+    def _get_next_test_chunk_id(self):
+        self.current_test_chunk += 1
+        return self.test_chunk_ids[self.current_test_chunk-1]
+    def _have_next_test_chunk(self):
+        return self.current_test_chunk < len(self.test_chunk_ids)
 
     def reset(self):
-        self.chunks = []
-        self.already_loaded_chunk_ids = []
-        self.current_chunk = 0
+        self.train_chunks = []
+        self.current_train_chunk = 0
         if self.randomize_chunk_order:
-            np.random.shuffle(self.all_chunk_ids)
+            np.random.shuffle(self.train_chunk_ids)
+    def reset_test(self):
+        self.test_chunks = []
+        self.current_test_chunk = 0
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.test_chunk_ids)
 
     def get_next_batch(self, batch_size):
         # Remove oldest chunk if we have 5 chunks
-        self.chunks = self.chunks[batch_size:]
+        self.train_chunks = self.train_chunks[batch_size:]
         # Load next chunk
-        while (len(self.chunks) < batch_size) and (self._have_next_chunk()):
+        while (len(self.train_chunks) < batch_size) and (self._have_next_chunk()):
             new_chunk = self._load_chunk(self._get_next_chunk_id()) # shape: (1, n_electrodes, n_time_bins, n_freq_features)
             new_chunk = new_chunk.reshape(1, self.n_electrodes, -1, transformer_config['max_n_time_bins'], transformer_config['n_freq_features'])
             for i in range(new_chunk.shape[2]):
-                self.chunks.append(new_chunk[:, :, i, :, :])
+                self.train_chunks.append(new_chunk[:, :, i, :, :])
         # Combine chunks
-        data = torch.cat(self.chunks[0:batch_size], dim=0).unsqueeze(1)
+        data = torch.cat(self.train_chunks[0:batch_size], dim=0).unsqueeze(1)
+        if self.trim_electrodes_to:
+            data = data[:, :, :self.trim_electrodes_to, :, :]
+        return data.to(self.device, dtype=transformer_config['dtype'])
+    def get_next_test_batch(self, batch_size):
+        self.test_chunks = self.test_chunks[batch_size:]
+        while (len(self.test_chunks) < batch_size) and (self._have_next_test_chunk()):
+            new_chunk = self._load_chunk(self._get_next_test_chunk_id())
+            new_chunk = new_chunk.reshape(1, self.n_electrodes, -1, transformer_config['max_n_time_bins'], transformer_config['n_freq_features'])
+            for i in range(new_chunk.shape[2]):
+                self.test_chunks.append(new_chunk[:, :, i, :, :])
+        data = torch.cat(self.test_chunks[0:batch_size], dim=0).unsqueeze(1)
         if self.trim_electrodes_to:
             data = data[:, :, :self.trim_electrodes_to, :, :]
         return data.to(self.device, dtype=transformer_config['dtype'])
 
     def length(self, batch_size):
-        return (self.n_chunks-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
+        return (len(self.train_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
+    def test_length(self, batch_size):
+        return (len(self.test_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
     
 class BrainTreebankDataLoader:
-    def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True):
+    def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True, p_test_chunks=0.0):
         self.subject_trials = subject_trials
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
@@ -242,7 +283,7 @@ class BrainTreebankDataLoader:
         self.dataloader_store = []
         for subject_id, trial_id in self.subject_trials:
             dataloader = BrainTreebankSubjectTrialDataLoader(subject_id, trial_id, trim_electrodes_to=self.trim_electrodes_to, 
-                                                             device=device, randomize_chunk_order=self.randomize_chunk_order)
+                                                             device=device, randomize_chunk_order=self.randomize_chunk_order, p_test_chunks=p_test_chunks)
             self.dataloader_store.append(dataloader)
 
         self.subject_electrode_emb_store = {}
@@ -300,7 +341,9 @@ if __name__ == "__main__":
     transformer_config['n_params'] = num_model_params
     print(f"Number of model parameters: {num_model_params}")
 
-    dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], trim_electrodes_to=transformer_config['max_n_electrodes'], device=device)
+    dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], 
+                                         trim_electrodes_to=transformer_config['max_n_electrodes'], device=device,
+                                         p_test_chunks=training_config['p_test_chunks'])
     transformer_config['n_emb_params'] = dataloader.get_n_embedding_params()
     print(f"Number of electrode embedding parameters: {transformer_config['n_emb_params']}")
 
@@ -354,6 +397,7 @@ if __name__ == "__main__":
             settings=wandb.Settings(init_timeout=120)
         )
 
+    test_loss_store = []
     loss_store = []
     gradient_norm_store = []
     epoch_batch_store = []
@@ -390,14 +434,38 @@ if __name__ == "__main__":
             if training_config['max_gradient_norm'] > 0:
                 torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])
 
+            overall_test_loss = None
+            if (overall_batch_i+1) % training_config['save_test_losses_every_n_batches'] == 0:
+                # Calculate test loss
+                subject_trial_test_loss_store = []
+                with torch.no_grad():
+                    for subject_trial_dataloader in dataloader.dataloader_store:
+                        subject_trial_dataloader.reset_test()
+                        test_loss_store = []
+                        for batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
+                            test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
+                            test_output = model(test_data[:, :, :, :-1, :], electrode_emb)
+                            test_loss_store.append(((test_output-test_data[:, :, :, 1:, :])**2).mean().item())
+                        test_loss = np.mean(test_loss_store)
+                        subject_trial_test_loss_store.append(test_loss)
+                overall_test_loss = np.mean(subject_trial_test_loss_store).item()
+                print(f"Test loss: {overall_test_loss}")
+
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str}")
             if wandb_log:
-                wandb.log({"loss": loss.item(), "gradient_norm": gradient_norm.item()})#, **loss_per_electrode})
+                log_dict = {
+                    "loss": loss.item(),
+                    "gradient_norm": gradient_norm.item(),
+                }
+                if overall_test_loss is not None:
+                    log_dict['test_loss'] = overall_test_loss
+                wandb.log(log_dict)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
             epoch_batch_store.append((epoch_i, batch_i))
             subject_trial_store.append(subject_trial)
             gradient_norm_store.append(gradient_norm.item())
+            if overall_test_loss is not None: test_loss_store.append(overall_test_loss)
 
             for optimizer, scheduler in zip(optimizers, schedulers):
                 optimizer.step()
@@ -420,6 +488,7 @@ if __name__ == "__main__":
                         'epoch_batch_store': epoch_batch_store,
                         'subject_trial_store': subject_trial_store,
                         'gradient_norm_store': gradient_norm_store,
+                        'test_losses': test_loss_store,
                         }, f, indent=4)
                 torch.save(model.state_dict(), f'{dir_name}/model_state_dict.pth')
                 print(f"Saved losses and model after batch {overall_batch_i+1}")
