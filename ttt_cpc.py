@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=args.weight_decay, help='Weight decay')
     parser.add_argument('--optimizer', type=str, default=args.optimizer, choices=['AdamW', 'Muon'], help='Optimizer type') # TODO: add Muon
     parser.add_argument('--max_gradient_norm', type=float, default=args.max_gradient_norm, help='Maximum gradient norm (-1 for no clipping)')
-    parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
+    parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros', 'coordinates_nograd'], help='Electrode embedding initialization')
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
     parser.add_argument('--pushaway', type=float, default=args.pushaway, help='Push-away strength')
@@ -301,16 +301,17 @@ class BrainTreebankDataLoader:
                                                              device=device, randomize_chunk_order=self.randomize_chunk_order, p_test_chunks=p_test_chunks)
             self.dataloader_store.append(dataloader)
 
+        self.subject_store = {}
+        for subject_id, trial_id in self.subject_trials:
+            if subject_id not in self.subject_store:
+                self.subject_store[subject_id] = Subject(subject_id)
+
         self.subject_electrode_emb_store = {}
         for i in range(len(self.subject_trials)):
             subject_id, trial_id = self.subject_trials[i]
             if subject_id not in self.subject_electrode_emb_store:
                 self.subject_electrode_emb_store[subject_id] = self._make_electrode_embedding(subject_id)
         #self.electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
-
-        subject_store = {}
-        for subject_id in self.subject_electrode_emb_store:
-            subject_store[subject_id] = Subject(subject_id)
 
         self.total_steps = self.__len__()
         self.current_step = 0
