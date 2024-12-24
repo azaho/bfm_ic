@@ -14,7 +14,7 @@ source .venv/bin/activate
 filename_array=('ttt_cpc.py' 'ttt_simsiam.py')
 dtype_array=('bfloat16')
 optimizer_array=('Muon' 'AdamW')
-electrode_init_array=('normal')
+electrode_init_array=('coordinates_nograd')
 dropout_array=(0.0)
 batch_size_array=(100)
 subjects_array=('2' '12345' '1234567890')
@@ -28,7 +28,7 @@ max_gradient_norm=-1
 dtype_index=0
 batch_size_index=0
 electrode_init_index=0
-random_string='EE'
+random_string='CNG'
 dropout_index=0
 pushaway_index=0
 
