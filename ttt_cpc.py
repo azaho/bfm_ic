@@ -499,6 +499,9 @@ if __name__ == "__main__":
                         batch_test_loss_store = []
                         for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
                             test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
+
+                            print(test_data.shape)
+                            print(electrode_emb.shape)
                             
                             electrode_output = electrode_transformer(test_data[:, :, :, :, :], electrode_emb) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
