@@ -534,6 +534,7 @@ if __name__ == "__main__":
                         
                         electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
                         time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                        print(electrode_output_mean.shape, time_output_mean.shape)
                         train_features_electrode.append(electrode_output_mean)
                         train_features_time.append(time_output_mean)
 
