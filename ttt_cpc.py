@@ -540,6 +540,7 @@ if __name__ == "__main__":
                     eval_subject_id = 2
                     eval_trial_id = 1
                     eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
+                    electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                     # Collect features and labels for training chunks
                     train_features_electrode = []
                     train_features_time = []
