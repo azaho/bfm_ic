@@ -610,6 +610,8 @@ if __name__ == "__main__":
                     test_pred_electrode = electrode_regressor.predict(test_features_electrode)
                     train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
                     test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
+                    train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
+                    test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
 
                     # Fit linear regression for time features
                     time_regressor = sklearn.linear_model.LinearRegression()
@@ -618,9 +620,12 @@ if __name__ == "__main__":
                     test_pred_time = time_regressor.predict(test_features_time)
                     train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
                     test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
+                    train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
+                    test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
-                    print(f"Electrode features -- Train R2: {train_r_squared_electrode:.4f} -- Test R2: {test_r_squared_electrode:.4f} -- "
-                          f"Time features -- Train R2: {train_r_squared_time:.4f} -- Test R2: {test_r_squared_time:.4f}")
+
+                    print(f"Electrode features -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
+                          f"Time features -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
 
 
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
@@ -637,6 +642,11 @@ if __name__ == "__main__":
                     log_dict['eval_test_r2_electrode'] = test_r_squared_electrode
                     log_dict['eval_train_r2_time'] = train_r_squared_time
                     log_dict['eval_test_r2_time'] = test_r_squared_time
+                    
+                    log_dict['eval_train_r_electrode'] = train_r_electrode
+                    log_dict['eval_test_r_electrode'] = test_r_electrode
+                    log_dict['eval_train_r_time'] = train_r_time
+                    log_dict['eval_test_r_time'] = test_r_time
                 wandb.log(log_dict)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
