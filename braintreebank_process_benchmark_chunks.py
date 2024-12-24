@@ -139,7 +139,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                 data_chunk[word_i, i, :, :] = Sxx.T # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         chunk_words_df.to_csv(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.csv', index=False)
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.npy', data_chunk)
-        if verbose: print(f"Saved chunk {chunk_i}")
+        if verbose: print(f"Saved chunk {chunk_i} (shape: {data_chunk.shape})")
     subject.close_all_files()
     del subject
 
