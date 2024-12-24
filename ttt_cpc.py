@@ -532,8 +532,8 @@ if __name__ == "__main__":
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output)
                         
-                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
-                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
                         train_features_electrode.append(electrode_output_mean)
                         train_features_time.append(time_output_mean)
 
@@ -549,8 +549,8 @@ if __name__ == "__main__":
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output) # shape: (n_chunks, 1, 1, n_time_bins, d_model)
                         
-                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
-                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().numpy()
+                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
                         test_features_electrode.append(electrode_output_mean)
                         test_features_time.append(time_output_mean)
 
