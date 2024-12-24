@@ -33,7 +33,7 @@ args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
 args.subjects = "1234567890"
-args.pushaway = 0.01
+args.pushaway = 0.00
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -365,7 +365,7 @@ class BrainTreebankDataLoader:
             dataloader.reset()
 
     def get_n_embedding_params(self):
-        num_emb_params = sum(p.numel() for p in self.subject_electrode_emb_store.values())
+        num_emb_params = sum(p.numel() for p in self.subject_electrode_emb_store.values() if p.requires_grad)
         return num_emb_params
     def parameters(self):
         return list(self.subject_electrode_emb_store.values())# + [self.electrode_embeddings_scale]

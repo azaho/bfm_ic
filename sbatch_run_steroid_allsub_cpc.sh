@@ -13,24 +13,24 @@ source .venv/bin/activate
 # Define arrays for each hyperparameter
 filename_array=('ttt_cpc.py' 'ttt_simsiam.py')
 dtype_array=('bfloat16')
-optimizer_array=('Muon')
+optimizer_array=('Muon' 'AdamW')
 electrode_init_array=('normal')
 dropout_array=(0.0)
 batch_size_array=(100)
 subjects_array=('2' '12345' '1234567890')
-lr_array=(0.001 0.0005)
+lr_array=(0.001 0.0005 0.0075)
 nl_array=(10 14 16)
 d_model_array=(192 384 576)
-pushaway_array=(0.005 0.001 0.0001)
+pushaway_array=(0)
 # Fixed parameters
 wd=0
 max_gradient_norm=-1
 dtype_index=0
 batch_size_index=0
-optimizer_index=0
 electrode_init_index=0
-random_string='PW'
+random_string='EE'
 dropout_index=0
+pushaway_index=0
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))
@@ -46,9 +46,9 @@ for gpu_id in {0..7}; do
 
     # Calculate indices for each hyperparameter
     subjects_index=$((index % 3))
-    pushaway_index=$((index / 3 % 3))
+    lr_index=$((index / 3 % 3))
     filename_index=$((index / 9 % 2))
-    lr_index=$((index / 18 % 2))
+    optimizer_index=$((index / 18 % 2))
     nl_index=$((index / 36))
     d_model_index=$((nl_index))
 
