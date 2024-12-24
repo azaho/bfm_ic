@@ -20,11 +20,11 @@ trig_time_col, trig_idx_col, est_idx_col, est_end_idx_col = 'movie_time', 'index
 word_time_col, word_text_col, is_onset_col, is_offset_col = 'word_time', 'text', 'is_onset', 'is_offset'
 def obtain_aligned_words_df(sub_id, trial_id, verbose=True, save_to_dir="braintreebank_benchmark_data_chunks"):
     # Check if aligned words dataframe already exists
-    if save_to_dir is not None:
-        save_file = os.path.join(save_to_dir, f'subject{sub_id}_trial{trial_id}_words_df.csv')
-        if os.path.exists(save_file):
-            if verbose: print(f"Loading existing aligned words dataframe from {save_file}")
-            return pd.read_csv(save_file)
+    # if save_to_dir is not None:
+    #     save_file = os.path.join(save_to_dir, f'subject{sub_id}_trial{trial_id}_words_df.csv')
+    #     if os.path.exists(save_file):
+    #         if verbose: print(f"Loading existing aligned words dataframe from {save_file}")
+    #         return pd.read_csv(save_file)
 
     # Path to neural data h5 file
     neural_data_file = os.path.join(ROOT_DIR, f'braintreebank/sub_{sub_id}_trial{trial_id:03}.h5')
