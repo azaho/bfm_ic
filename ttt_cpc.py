@@ -17,7 +17,7 @@ args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 100
-args.nl = 20
+args.nl = 15
 args.dm = 384
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
@@ -497,12 +497,8 @@ if __name__ == "__main__":
                         electrode_emb = dataloader.subject_electrode_emb_store[subject_id]
                         subject_trial_dataloader.reset_test()
                         batch_test_loss_store = []
-                        print("test length: ", subject_trial_dataloader.test_length(training_config['batch_size']))
                         for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
                             test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
-
-                            print(test_data.shape)
-                            print(electrode_emb.shape)
                             
                             electrode_output = electrode_transformer(test_data[:, :, :, :, :], electrode_emb) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
@@ -529,7 +525,7 @@ if __name__ == "__main__":
                     train_features_time = []
                     train_labels = []
                     for train_chunk in train_chunks:
-                        eval_input = dataloader.get_chunk_input(train_chunk).unsqueeze(1) # shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
+                        eval_input = dataloader.get_chunk_input(train_chunk)# shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
                         train_labels.append(dataloader.get_chunk_labels(train_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
@@ -546,7 +542,7 @@ if __name__ == "__main__":
                     test_features_time = []
                     test_labels = []
                     for test_chunk in test_chunks:
-                        eval_input = dataloader.get_chunk_input(test_chunk).unsqueeze(1) # shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
+                        eval_input = dataloader.get_chunk_input(test_chunk) # shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(dataloader.get_chunk_labels(test_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
