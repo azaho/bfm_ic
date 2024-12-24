@@ -91,6 +91,13 @@ def obtain_aligned_words_df(sub_id, trial_id, verbose=True, save_to_dir="braintr
     valid_words = (words_df[est_idx_col] >= BENCHMARK_START_DATA_BEFORE_ONSET * SAMPLING_RATE) & \
                  (words_df[est_end_idx_col] <= total_samples - BENCHMARK_END_DATA_AFTER_ONSET * SAMPLING_RATE)
     words_df = words_df[valid_words].reset_index(drop=True)
+
+    # add "rms_percentile" and "pitch_percentile" columns
+    all_rms_values = words_df['rms'].to_numpy() # shape: (n_words,)
+    all_pitch_values = words_df['pitch'].to_numpy() # shape: (n_words,)
+    words_df['rms_percentile'] = words_df.apply(lambda row: np.mean(all_rms_values[all_rms_values < row['rms']]), axis=1)
+    words_df['pitch_percentile'] = words_df.apply(lambda row: np.mean(all_pitch_values[all_pitch_values < row['pitch']]), axis=1)
+
     if verbose: print(f"Kept {len(words_df)} words after removing invalid windows")
     if verbose: print(f"Done.")
     # Save the processed words dataframe
@@ -102,7 +109,7 @@ def obtain_aligned_words_df(sub_id, trial_id, verbose=True, save_to_dir="braintr
 
 def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAPLACIAN_REREFERENCED, nperseg=256, noverlap=0, max_chunks=None, start_data_before_onset=BENCHMARK_START_DATA_BEFORE_ONSET, end_data_after_onset=BENCHMARK_END_DATA_AFTER_ONSET,
                           chunk_batch_size=100, verbose=True, global_per_electrode_normalizing_params=True, allow_corrupted=ALLOW_CORRUPTED_ELECTRODES, 
-                          only_laplacian=False, save_to_dir="braintreebank_benchmark_data_chunks"):
+                          only_laplacian=False, save_to_dir="braintreebank_benchmark_data_chunks", padding_time=BENCHMARK_PADDING_TIME):
     window_length = (start_data_before_onset + end_data_after_onset) * SAMPLING_RATE
     assert window_length % nperseg == 0, "Window length must be divisible by nperseg"
     assert (not laplacian_rereferenced) or (only_laplacian), "Laplacian rereferenced is only supported when only_laplacian is True"
@@ -141,6 +148,55 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.npy', data_chunk)
         if verbose: print(f"Saved chunk {chunk_i} (shape: {data_chunk.shape})")
     subject.close_all_files()
+
+    # Process gaps between words
+    if verbose: print("Processing gaps between words...")
+    
+    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37), dtype=np.float32)
+    gap_chunk_count = 0
+    gap_chunk_num = 0
+
+    # Iterate through consecutive word pairs
+    for i in range(len(words_df)-1):
+        current_word = words_df.iloc[i]
+        next_word = words_df.iloc[i+1]
+        
+        # Calculate gap between current word offset and next word onset
+        current_word_offset = int(current_word[est_end_idx_col] + padding_time * SAMPLING_RATE)
+        next_word_onset = int(next_word[est_idx_col] - padding_time * SAMPLING_RATE)
+        gap_samples = next_word_onset - current_word_offset
+
+        # If gap is large enough for a window
+        if gap_samples >= window_length:
+            # Add to current chunk
+            window_start_sample = current_word_offset
+            window_end_sample = window_start_sample + window_length
+            
+            if window_end_sample <= total_samples:
+                # Get spectrograms for gap
+                for j, electrode_label in enumerate(electrode_labels):
+                    f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, 
+                                                       window_from=window_start_sample,
+                                                       window_to=window_end_sample,
+                                                       normalize_per_freq=True,
+                                                       laplacian_rereferenced=laplacian_rereferenced,
+                                                       cache=False,
+                                                       normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
+                    gap_data_chunk[gap_chunk_count, j, :, :] = Sxx.T
+
+                gap_chunk_count += 1
+
+                # Save chunk if it's full
+                if gap_chunk_count == chunk_batch_size:
+                    if save_to_dir is not None:
+                        np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_gap_chunk{gap_chunk_num}.npy', gap_data_chunk)
+                        if verbose: print(f"Saved gap chunk {gap_chunk_num} (shape: {gap_data_chunk.shape})")
+                    # Reset for next chunk
+                    gap_chunk_num += 1
+                    gap_chunk_count = 0
+                    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37), dtype=np.float32)
+
+    subject.close_all_files()
     del subject
 
 if __name__ == "__main__":
@@ -150,12 +206,14 @@ if __name__ == "__main__":
     parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=LAPLACIAN_REREFERENCED)
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
     parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_benchmark_data_chunks")
+    parser.add_argument('--only_update_df', type=bool, required=False, help='Only update the words dataframe without processing neural data', default=False)
     args = parser.parse_args()
     sub_id = args.sub_id
     trial_id = args.trial_id
     laplacian_rereferenced = args.laplacian_rereferenced
     max_chunks = args.max_chunks
     save_to_dir = args.save_to_dir
+    only_update_df = args.only_update_df
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
     nperseg = 256 # TODO: move to braintreebank_config.py
@@ -165,5 +223,7 @@ if __name__ == "__main__":
         if (sub_id == 6) and (trial_id < 0): process_trial_ids = [0, 1, 4] # special case for subject 6 that only has trials 0, 1, and 4
         for trial_id in process_trial_ids:
             words_df = obtain_aligned_words_df(sub_id, trial_id, save_to_dir=save_to_dir)
+            if only_update_df:
+                continue
             process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, 
                                   global_per_electrode_normalizing_params=True, save_to_dir=save_to_dir, nperseg=nperseg)

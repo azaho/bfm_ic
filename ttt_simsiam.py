@@ -385,7 +385,7 @@ if __name__ == "__main__":
 
     dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], 
                                          trim_electrodes_to=transformer_config['max_n_electrodes'], device=device,
-                                         p_test_chunks=training_config['p_test_chunks'], randomize_electrode_order=False)
+                                         p_test_chunks=training_config['p_test_chunks'])
 
     total_steps = int(training_config['n_epochs'] * len(dataloader))
     training_config['total_steps'] = total_steps
@@ -466,10 +466,17 @@ if __name__ == "__main__":
             # data shape: (batch_size, 1, n_electrodes, n_time_bins, n_freq_features)
             # electrode_emb shape: (n_electrodes, d_model)
 
-            electrode_output = electrode_transformer(data[:, :, :, :, :], electrode_emb) 
+            n_electrodes = data.shape[2]
+
+            electrode_output = electrode_transformer(data[:, :, :n_electrodes//2, :, :], electrode_emb) 
             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
+
+            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb) 
+            # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
+            electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
+            time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
             with torch.no_grad():
                 # Calculate average distance between any two vectors in last dimension
@@ -484,7 +491,7 @@ if __name__ == "__main__":
                 avg_distance = distances[:, mask].mean().item()
                 avg_distance_store.append(avg_distance)
 
-            loss = ((time_output[:, :, :, :-1, :] - time_output[:, :, :, 1:, :].detach())**2).mean()
+            loss = ((time_output[:, :, :, :, :] - time_output2[:, :, :, :, :].detach())**2).mean()
 
             # Calculate time remaining
             steps_done = overall_batch_i + 1
@@ -514,13 +521,22 @@ if __name__ == "__main__":
                         subject_trial_dataloader.reset_test()
                         batch_test_loss_store = []
                         for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
-                            test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
+                            permutation = torch.randperm(n_electrodes)
+                            test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'], permutation=permutation)
                             
-                            electrode_output = electrode_transformer(test_data[:, :, :, :, :], electrode_emb) 
+                            n_electrodes = test_data.shape[2]
+
+                            electrode_output = electrode_transformer(test_data[:, :, :n_electrodes//2, :, :], electrode_emb[permutation]) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
-                            test_loss = ((time_output[:, :, :, :-1, :] - time_output[:, :, :, 1:, :].detach())**2).mean()
+
+                            electrode_output2 = electrode_transformer(test_data[:, :, n_electrodes//2:, :, :], electrode_emb[permutation]) 
+                            # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
+                            electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
+                            time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
+
+                            test_loss = ((time_output[:, :, :, :, :] - time_output2[:, :, :, :, :].detach())**2).mean()
                             batch_test_loss_store.append(test_loss.item())
                             if np.isnan(test_loss.item()):
                                 print(f"Test loss is NaN for subject {subject_id} trial {trial_id} test_batch {test_batch_i}")
@@ -547,8 +563,9 @@ if __name__ == "__main__":
                     for train_chunk in train_chunks:
                         eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
+                        n_electrodes = eval_input.shape[2]
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output)
                         
@@ -565,8 +582,9 @@ if __name__ == "__main__":
                     for test_chunk in test_chunks:
                         eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
-
-                        electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
+                        n_electrodes = eval_input.shape[2]
+                        
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
                         
