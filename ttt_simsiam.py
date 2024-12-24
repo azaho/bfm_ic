@@ -474,10 +474,11 @@ if __name__ == "__main__":
             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb[n_electrodes//2:]) 
-            # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
-            electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
-            time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
+            with torch.no_grad():
+                electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb[n_electrodes//2:]) 
+                # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
+                electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
+                time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
             with torch.no_grad():
                 # Calculate average distance between any two vectors in last dimension
