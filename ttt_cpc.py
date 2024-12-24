@@ -525,7 +525,7 @@ if __name__ == "__main__":
                     train_features_time = []
                     train_labels = []
                     for train_chunk in train_chunks:
-                        eval_input = dataloader.get_chunk_input(train_chunk)# shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
+                        eval_input = dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         train_labels.append(dataloader.get_chunk_labels(train_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
@@ -534,7 +534,7 @@ if __name__ == "__main__":
                         
                         electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
                         time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        print(electrode_output_mean.shape, time_output_mean.shape)
+                        
                         train_features_electrode.append(electrode_output_mean)
                         train_features_time.append(time_output_mean)
 
@@ -543,17 +543,17 @@ if __name__ == "__main__":
                     test_features_time = []
                     test_labels = []
                     for test_chunk in test_chunks:
-                        eval_input = dataloader.get_chunk_input(test_chunk) # shape: (n_chunks, 1, n_electrodes, n_time_bins, n_freq_features)
+                        eval_input = dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(dataloader.get_chunk_labels(test_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
-                        time_output = time_transformer(electrode_output) # shape: (n_chunks, 1, 1, n_time_bins, d_model)
+                        time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
                         
                         electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
                         time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        test_features_electrode.append(electrode_output_mean)
-                        test_features_time.append(time_output_mean)
+                        test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
+                        test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
                     # Convert lists to arrays
                     train_features_electrode = np.concatenate(train_features_electrode)
@@ -562,6 +562,8 @@ if __name__ == "__main__":
                     test_features_electrode = np.concatenate(test_features_electrode)
                     test_features_time = np.concatenate(test_features_time)
                     test_labels = np.concatenate(test_labels)
+
+                    print(test_labels.shape, test_features_electrode.shape, test_features_time.shape)
 
                     # Fit linear regression and evaluate using electrode features
                     slope_e, intercept_e, r_value_e, p_value_e, std_err_e = stats.linregress(train_features_electrode, train_labels)
