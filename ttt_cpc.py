@@ -546,10 +546,10 @@ if __name__ == "__main__":
                     test_features_time = []
                     test_labels = []
                     for test_chunk in test_chunks:
-                        eval_input = dataloader.get_chunk_input(test_chunk)
+                        eval_input = dataloader.get_chunk_input(test_chunk) # shape: (n_chunks, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(dataloader.get_chunk_labels(test_chunk))
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :, :, :], electrode_emb)
+                        electrode_output = electrode_transformer(eval_input[:, :transformer_config['max_n_electrodes'], :, :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output) # shape: (n_chunks, 1, 1, n_time_bins, d_model)
                         
