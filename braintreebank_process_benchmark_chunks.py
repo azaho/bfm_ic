@@ -156,6 +156,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     gap_chunk_count = 0
     gap_chunk_num = 0
 
+    # TODO: test this
     # Iterate through consecutive word pairs
     for i in range(len(words_df)-1):
         current_word = words_df.iloc[i]

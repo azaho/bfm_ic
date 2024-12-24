@@ -91,7 +91,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "sim",
+    'model_name': "sam",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -468,12 +468,12 @@ if __name__ == "__main__":
 
             n_electrodes = data.shape[2]
 
-            electrode_output = electrode_transformer(data[:, :, :n_electrodes//2, :, :], electrode_emb) 
+            electrode_output = electrode_transformer(data[:, :, :n_electrodes//2, :, :], electrode_emb[:n_electrodes//2]) 
             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb) 
+            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb[n_electrodes//2:]) 
             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
             time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
@@ -526,12 +526,12 @@ if __name__ == "__main__":
                             
                             n_electrodes = test_data.shape[2]
 
-                            electrode_output = electrode_transformer(test_data[:, :, :n_electrodes//2, :, :], electrode_emb[permutation]) 
+                            electrode_output = electrode_transformer(test_data[:, :, :n_electrodes//2, :, :], electrode_emb[permutation][:n_electrodes//2]) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-                            electrode_output2 = electrode_transformer(test_data[:, :, n_electrodes//2:, :, :], electrode_emb[permutation]) 
+                            electrode_output2 = electrode_transformer(test_data[:, :, n_electrodes//2:, :, :], electrode_emb[permutation][n_electrodes//2:]) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
                             time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
