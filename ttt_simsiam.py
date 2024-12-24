@@ -31,7 +31,7 @@ args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
-args.subjects = "1"
+args.subjects = "1234567890"
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -563,7 +563,7 @@ if __name__ == "__main__":
                     for train_chunk in train_chunks:
                         eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
-                        n_electrodes = eval_input.shape[2]
+                        n_electrodes = len(electrode_emb)
 
                         electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
@@ -582,7 +582,7 @@ if __name__ == "__main__":
                     for test_chunk in test_chunks:
                         eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
-                        n_electrodes = eval_input.shape[2]
+                        n_electrodes = len(electrode_emb)
                         
                         electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
