@@ -497,6 +497,7 @@ if __name__ == "__main__":
                         electrode_emb = dataloader.subject_electrode_emb_store[subject_id]
                         subject_trial_dataloader.reset_test()
                         batch_test_loss_store = []
+                        print("test length: ", subject_trial_dataloader.test_length(training_config['batch_size']))
                         for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
                             test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'])
 
