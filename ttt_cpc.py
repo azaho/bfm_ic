@@ -31,7 +31,7 @@ args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
-args.subjects = "1"
+args.subjects = "1234567890"
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -535,8 +535,8 @@ if __name__ == "__main__":
             test_r_squared_time = None
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
-                    train_chunks = np.arange(64)
-                    test_chunks = np.arange(64, 128)
+                    train_chunks = np.arange(48)
+                    test_chunks = np.arange(48, 96)
                     eval_subject_id = 2
                     eval_trial_id = 1
                     eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
