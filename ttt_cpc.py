@@ -575,6 +575,7 @@ if __name__ == "__main__":
                     time_regressor = sklearn.linear_model.LinearRegression()
                     time_regressor.fit(train_features_time, train_labels)
                     train_pred_time = time_regressor.predict(train_features_time)
+                    print(train_features_time.shape, train_pred_time.shape, train_labels.shape)
                     test_pred_time = time_regressor.predict(test_features_time)
                     train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
                     test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
