@@ -22,7 +22,7 @@ batch_size_array=(100)
 subjects_array=('2' '12345' '1234567890')
 lr_array=(0.001 0.0005)
 nl_array=(10 15 20)
-d_model_array=(196 384 768)
+d_model_array=(192 384 768)
 # Fixed parameters
 wd=0
 max_gradient_norm=-1
