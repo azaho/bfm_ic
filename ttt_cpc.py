@@ -1,5 +1,6 @@
 import torch, numpy as np, json, os, time
 from transformer_architecture_cpc import ElectrodeTransformer, TimeTransformer
+from braintreebank_utils import Subject
 import argparse
 import wandb
 import pandas as pd
@@ -304,16 +305,46 @@ class BrainTreebankDataLoader:
         for i in range(len(self.subject_trials)):
             subject_id, trial_id = self.subject_trials[i]
             if subject_id not in self.subject_electrode_emb_store:
-                torch_fun = torch.randn if transformer_config['electrode_embedding_init'] == 'normal' else torch.zeros
-                embedding = torch_fun(min(self.dataloader_store[i].n_electrodes, self.trim_electrodes_to), transformer_config['d_model'])
-                embedding = embedding.to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model'])
-                self.subject_electrode_emb_store[subject_id] = torch.nn.Parameter(embedding)
+                self.subject_electrode_emb_store[subject_id] = self._make_electrode_embedding(subject_id)
         #self.electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
+
+        subject_store = {}
+        for subject_id in self.subject_electrode_emb_store:
+            subject_store[subject_id] = Subject(subject_id)
 
         self.total_steps = self.__len__()
         self.current_step = 0
         self.total_steps_dataloaders = [dataloader.length(training_config['batch_size']) for dataloader in self.dataloader_store]
         self.current_step_dataloaders = [0 for _ in range(len(self.dataloader_store))]
+
+    def _make_electrode_embedding(self, subject_id):
+        n_electrodes = min(self.subject_store[subject_id].n_electrodes, self.trim_electrodes_to)
+        if transformer_config['electrode_embedding_init'] in ['normal', 'zeros']:
+            torch_fun = torch.randn if transformer_config['electrode_embedding_init'] == 'normal' else torch.zeros
+            embedding = torch_fun(n_electrodes, transformer_config['d_model'])
+        elif transformer_config['electrode_embedding_init'] == 'coordinates_nograd':
+            coordinates = self.subject_store[subject_id].get_electrode_coordinates()
+            if len(coordinates) < n_electrodes:
+                padding = torch.zeros(n_electrodes - len(coordinates), 3, device=coordinates.device)
+                coordinates = torch.cat([coordinates, padding], dim=0)
+            # Create sinusoidal position encoding from 3D coordinates
+            d_model = transformer_config['d_model']
+            coordinates = (coordinates - 50) / (200 - 50)  # Normalize to [0,1] range given min/max
+            
+            # Calculate frequencies for each dimension
+            freq = 200 ** torch.linspace(0, 1, d_model//6)
+            
+            # Calculate position encodings for each coordinate dimension
+            l_enc = coordinates[:, 0:1] @ freq.unsqueeze(0)  # For L coordinate
+            i_enc = coordinates[:, 1:2] @ freq.unsqueeze(0)  # For I coordinate  
+            p_enc = coordinates[:, 2:3] @ freq.unsqueeze(0)  # For P coordinate
+            padding_zeros = torch.zeros(n_electrodes, d_model-6*(d_model//6)) # padding in case model dimension is not divisible by 6
+            # Combine sin and cos encodings
+            embedding = torch.cat([torch.sin(l_enc), torch.cos(l_enc), torch.sin(i_enc), torch.cos(i_enc), torch.sin(p_enc), torch.cos(p_enc), padding_zeros], dim=-1)
+
+        embedding = embedding.to(device, dtype=transformer_config['dtype']) / np.sqrt(transformer_config['d_model'])
+        embedding = torch.nn.Parameter(embedding, requires_grad=('nograd' not in transformer_config['electrode_embedding_init']))
+        return embedding
     
     def get_next_subject_trial_id(self):
         non_empty_dataloaders = [i for i in range(len(self.dataloader_store)) if self.current_step_dataloaders[i] < self.total_steps_dataloaders[i]]

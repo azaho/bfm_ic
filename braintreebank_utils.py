@@ -19,8 +19,10 @@ class Subject:
         self.neural_data = {}
         self.neural_data_cache = {}
         self.h5f_files = {}
+        self.electrode_labels = self._get_all_electrode_names()
         self.corrupted_electrodes = self._get_corrupted_electrodes()
-        self.electrode_labels = self._get_electrode_names(allow_corrupted=allow_corrupted)
+        if not allow_corrupted:
+            self.electrode_labels = [e for e in self.electrode_labels if e not in self.corrupted_electrodes]
         self.electrode_ids = {e:i for i, e in enumerate(self.electrode_labels)}
         self.laplacian_electrodes, self.electrode_neighbors = self._get_all_laplacian_electrodes()
 
@@ -38,23 +40,21 @@ class Subject:
             print("WARNING: Electrodes in labels but not in neural data:", missing_in_neural)
 
     def _clean_electrode_label(self, electrode_label):
-        if '*' in electrode_label:
-            electrode_label = electrode_label.replace('*', '')
-        if '#' in electrode_label:
-            electrode_label = electrode_label.replace('#', '')
-        return electrode_label
+        return electrode_label.replace('*', '').replace('#', '')
 
     def _get_corrupted_electrodes(self):
         corrupted_electrodes_file = os.path.join(ROOT_DIR, f'braintreebank_corrupted_elec.json')
         corrupted_electrodes = json.load(open(corrupted_electrodes_file))
-        return [self._clean_electrode_label(e) for e in corrupted_electrodes[f'subject{self.subject_id}']]
+        corrupted_electrodes = [self._clean_electrode_label(e) for e in corrupted_electrodes[f'subject{self.subject_id}']]
+        # add electrodes that start with "DC" to corrupted electrodes, because they don't have brain signal, instead are used for triggers
+        corrupted_electrodes += [e for e in self.electrode_labels if (e.upper().startswith("DC") or e.upper().startswith("TRIG"))] 
+        return corrupted_electrodes
 
-    def _get_electrode_names(self, allow_corrupted=True):
+    def _get_all_electrode_names(self):
         electrode_labels_file = os.path.join(ROOT_DIR, f'braintreebank/electrode_labels/sub_{self.subject_id}/electrode_labels.json')
         electrode_labels = json.load(open(electrode_labels_file))
         electrode_labels = [self._clean_electrode_label(e) for e in electrode_labels]
-        if allow_corrupted: return electrode_labels
-        else: return [e for e in electrode_labels if e not in self.corrupted_electrodes]
+        return electrode_labels
 
     def _get_all_laplacian_electrodes(self, verbose=False):
         """
@@ -99,7 +99,25 @@ class Subject:
         """Load localization data for this electrode's subject from depth-wm.csv"""
         loc_file = os.path.join(ROOT_DIR, f'braintreebank/localization/sub_{self.subject_id}/depth-wm.csv')
         df = pd.read_csv(loc_file)
+        df['Electrode'] = df['Electrode'].apply(self._clean_electrode_label)
         return df
+    
+    def get_electrode_coordinates(self):
+        """
+            Get the coordinates of the electrodes for this subject
+            Returns:
+                coordinates: (n_electrodes, 3) array of coordinates (L, I, P) without any preprocessing of the coordinates
+                All coordinates are in between 50mm and 200mm for this dataset (check braintreebank_utils.ipynb for statistics)
+        """
+        # Load the brain regions file for this subject
+        regions_df = self.localization_data
+        # Create array of coordinates in same order as electrode_labels
+        coordinates = np.zeros((len(self.electrode_labels), 3))
+        for i, label in enumerate(self.electrode_labels):
+            assert label in regions_df['Electrode'].values, f"Electrode {label} not found in regions file of subject {self.subject_id}"
+            row = regions_df[regions_df['Electrode'] == label].iloc[0]
+            coordinates[i] = [row['L'], row['I'], row['P']]
+        return coordinates
     
     def clear_neural_data_cache(self, trial_id):
         self.neural_data_cache[trial_id] = {}
