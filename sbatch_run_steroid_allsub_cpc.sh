@@ -19,8 +19,8 @@ dropout_array=(0.0 0.1 0.2)
 batch_size_array=(100)
 subjects_array=('2' '12345' '1234567890')
 lr_array=(0.001 0.0005)
-nl_array=(10 15 20)
-d_model_array=(192 384 768)
+nl_array=(10 14 16)
+d_model_array=(192 384 576)
 # Fixed parameters
 wd=0
 max_gradient_norm=-1
@@ -28,7 +28,7 @@ dtype_index=0
 batch_size_index=0
 optimizer_index=0
 electrode_init_index=0
-random_string='1338'
+random_string='1339'
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))

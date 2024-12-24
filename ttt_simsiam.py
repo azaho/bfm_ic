@@ -86,6 +86,7 @@ training_config = {
     'random_string': args.rs,
     'max_gradient_norm': args.max_gradient_norm,
     'wandb_project': args.wandb_project,
+    'wandb_commit_every_n_batches': 100,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -638,16 +639,16 @@ if __name__ == "__main__":
                 if overall_test_loss is not None:
                     log_dict['test_loss'] = overall_test_loss
                 if train_r_squared_electrode is not None:
-                    log_dict['eval_train_r2_electrode'] = train_r_squared_electrode
-                    log_dict['eval_test_r2_electrode'] = test_r_squared_electrode
-                    log_dict['eval_train_r2_time'] = train_r_squared_time
-                    log_dict['eval_test_r2_time'] = test_r_squared_time
-                    
-                    log_dict['eval_train_r_electrode'] = train_r_electrode
-                    log_dict['eval_test_r_electrode'] = test_r_electrode
-                    log_dict['eval_train_r_time'] = train_r_time
-                    log_dict['eval_test_r_time'] = test_r_time
-                wandb.log(log_dict)#, **loss_per_electrode)
+                    log_dict['eval/train_r2_electrode'] = train_r_squared_electrode
+                    log_dict['eval/test_r2_electrode'] = test_r_squared_electrode
+                    log_dict['eval/train_r2_time'] = train_r_squared_time
+                    log_dict['eval/test_r2_time'] = test_r_squared_time
+
+                    log_dict['eval/train_r_electrode'] = train_r_electrode
+                    log_dict['eval/test_r_electrode'] = test_r_electrode
+                    log_dict['eval/train_r_time'] = train_r_time
+                    log_dict['eval/test_r_time'] = test_r_time
+                wandb.log(log_dict, step=overall_batch_i+1, commit=(overall_batch_i+1) % training_config['wandb_commit_every_n_batches'] == 0)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
             epoch_batch_store.append((epoch_i, batch_i))
