@@ -515,8 +515,8 @@ if __name__ == "__main__":
 
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
-                    train_chunks = [3, 4, 5, 6, 7, 8, 9, 10]
-                    test_chunks = [11, 12, 13, 14]
+                    train_chunks = np.arange(3, 40)
+                    test_chunks = np.arange(40, 64)
                     eval_subject_id = 2
                     eval_trial_id = 1
                     eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
