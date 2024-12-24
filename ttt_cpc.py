@@ -4,7 +4,7 @@ import argparse
 import wandb
 import pandas as pd
 from scipy import stats
-import scipy
+import sklearn
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -566,13 +566,13 @@ if __name__ == "__main__":
                     print(test_labels.shape, test_features_electrode.shape, test_features_time.shape)
 
                     # Fit linear regression for electrode features
-                    electrode_regressor = stats.LinearRegression()
+                    electrode_regressor = sklearn.linear_model.LinearRegression()
                     electrode_regressor.fit(train_features_electrode, train_labels)
                     train_r_squared_electrode = electrode_regressor.score(train_features_electrode, train_labels)
                     test_r_squared_electrode = electrode_regressor.score(test_features_electrode, test_labels)
 
                     # Fit linear regression for time features
-                    time_regressor = stats.LinearRegression()
+                    time_regressor = sklearn.linear_model.LinearRegression()
                     time_regressor.fit(train_features_time, train_labels)
                     train_r_squared_time = time_regressor.score(train_features_time, train_labels)
                     test_r_squared_time = time_regressor.score(test_features_time, test_labels)
