@@ -556,12 +556,12 @@ if __name__ == "__main__":
                         test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
                     # Convert lists to arrays
-                    train_features_electrode = np.concatenate(train_features_electrode)
-                    train_features_time = np.concatenate(train_features_time)
-                    train_labels = np.concatenate(train_labels).reshape(-1, 1)
-                    test_features_electrode = np.concatenate(test_features_electrode)
-                    test_features_time = np.concatenate(test_features_time)
-                    test_labels = np.concatenate(test_labels).reshape(-1, 1)
+                    train_features_electrode = np.concatenate(train_features_electrode)[:300]
+                    train_features_time = np.concatenate(train_features_time)[:300]
+                    train_labels = np.concatenate(train_labels).reshape(-1, 1)[:300]
+                    test_features_electrode = np.concatenate(test_features_electrode)[:300]
+                    test_features_time = np.concatenate(test_features_time)[:300]
+                    test_labels = np.concatenate(test_labels).reshape(-1, 1)[:300]
 
                     print(test_labels.shape, test_features_electrode.shape, test_features_time.shape)
 
