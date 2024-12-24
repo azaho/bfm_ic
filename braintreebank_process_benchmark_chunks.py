@@ -136,7 +136,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                 f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, 
                                                     normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False,
                                                     normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
-                data_chunk[word_i, i, :, :] = Sxx.T # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+                data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = Sxx.T # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         chunk_words_df.to_csv(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.csv', index=False)
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.npy', data_chunk)
         if verbose: print(f"Saved chunk {chunk_i} (shape: {data_chunk.shape})")
