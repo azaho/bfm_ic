@@ -555,8 +555,6 @@ if __name__ == "__main__":
                         test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
                         test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
-                    print(electrode_output_mean.shape, time_output_mean.shape, eval_dataloader.get_chunk_labels(test_chunk).shape)
-
                     # Convert lists to arrays
                     n_words_per_chunk = 100
                     train_features_electrode = np.concatenate(train_features_electrode)[:n_words_per_chunk*len(train_chunks)] #XXX will remove later
@@ -569,14 +567,18 @@ if __name__ == "__main__":
                     # Fit linear regression for electrode features
                     electrode_regressor = sklearn.linear_model.LinearRegression()
                     electrode_regressor.fit(train_features_electrode, train_labels)
-                    train_r_squared_electrode = electrode_regressor.score(train_features_electrode, train_labels)
-                    test_r_squared_electrode = electrode_regressor.score(test_features_electrode, test_labels)
+                    train_pred_electrode = electrode_regressor.predict(train_features_electrode)
+                    test_pred_electrode = electrode_regressor.predict(test_features_electrode)
+                    train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
+                    test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
 
                     # Fit linear regression for time features
                     time_regressor = sklearn.linear_model.LinearRegression()
                     time_regressor.fit(train_features_time, train_labels)
-                    train_r_squared_time = time_regressor.score(train_features_time, train_labels)
-                    test_r_squared_time = time_regressor.score(test_features_time, test_labels)
+                    train_pred_time = time_regressor.predict(train_features_time)
+                    test_pred_time = time_regressor.predict(test_features_time)
+                    train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
+                    test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
 
                     print(f"Electrode features -- Train R2: {train_r_squared_electrode:.4f} -- Test R2: {test_r_squared_electrode:.4f} -- "
                           f"Time features -- Train R2: {train_r_squared_time:.4f} -- Test R2: {test_r_squared_time:.4f}")
