@@ -513,6 +513,10 @@ if __name__ == "__main__":
                 overall_test_loss = np.nanmean(subject_trial_test_loss_store).item()
                 print(f"Test loss: {overall_test_loss}")
 
+            train_r_squared_electrode = None
+            train_r_squared_time = None
+            test_r_squared_electrode = None
+            test_r_squared_time = None
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
                     train_chunks = np.arange(3, 40)
