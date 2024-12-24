@@ -32,6 +32,7 @@ args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = ""
 args.subjects = "1234567890"
+args.pushaway = 0.01
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros'], help='Electrode embedding initialization')
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
+    parser.add_argument('--pushaway', type=float, default=args.pushaway, help='Push-away strength')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -87,6 +89,7 @@ training_config = {
     'max_gradient_norm': args.max_gradient_norm,
     'wandb_project': args.wandb_project,
     'wandb_commit_every_n_batches': 100,
+    'pushaway': args.pushaway,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -134,6 +137,7 @@ def update_dir_name():
     dir_name += f"_bs{training_config['batch_size']}"
     dir_name += f"_wd{training_config['weight_decay']}"
     dir_name += f"_mg{training_config['max_gradient_norm']}"
+    dir_name += f"_pa{training_config['pushaway']}"
     dir_name += f"_lrmax{training_config['lr_max']}"
     dir_name += f"_lrmin{training_config['lr_min']}"
     dir_name += f"_lrwm{training_config['lr_warmup_steps']}" if 'lr_warmup_steps' in training_config else f"_lrwf{training_config['lr_warmup_frac']}"
@@ -472,20 +476,19 @@ if __name__ == "__main__":
             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-            with torch.no_grad():
-                # Calculate average distance between any two vectors in last dimension
-                # Reshape to combine first 3 dimensions (batch_size, 1, 1)
-                reshaped = time_output.reshape(-1, time_output.shape[3], time_output.shape[4]) # shape: (batch_size*1*1, n_time_bins, d_model)
-                # Calculate pairwise distances between all time steps
-                # Using broadcasting to compute differences
-                diff = reshaped.unsqueeze(1) - reshaped.unsqueeze(2) # shape: (batch_size*1*1, n_time_bins, n_time_bins, d_model)
-                distances = torch.norm(diff, dim=-1) # shape: (batch_size*1*1, n_time_bins, n_time_bins)
-                # Get average distance (excluding diagonal which is 0)
-                mask = ~torch.eye(distances.shape[1], dtype=torch.bool, device=distances.device)
-                avg_distance = distances[:, mask].mean().item()
-                avg_distance_store.append(avg_distance)
+            # Calculate average distance between any two vectors in last dimension
+            # Reshape to combine first 3 dimensions (batch_size, 1, 1)
+            reshaped = time_output.reshape(-1, time_output.shape[3], time_output.shape[4]) # shape: (batch_size*1*1, n_time_bins, d_model)
+            # Calculate pairwise distances between all time steps
+            # Using broadcasting to compute differences
+            diff = reshaped.unsqueeze(1) - reshaped.unsqueeze(2) # shape: (batch_size*1*1, n_time_bins, n_time_bins, d_model)
+            distances = torch.norm(diff, dim=-1) # shape: (batch_size*1*1, n_time_bins, n_time_bins)
+            # Get average distance (excluding diagonal which is 0)
+            mask = ~torch.eye(distances.shape[1], dtype=torch.bool, device=distances.device)
+            avg_distance = distances[:, mask].mean().item()
+            avg_distance_store.append(avg_distance)
 
-            loss = ((time_output[:, :, :, :-1, :] - time_output[:, :, :, 1:, :].detach())**2).mean()
+            loss = ((time_output[:, :, :, :-1, :] - time_output[:, :, :, 1:, :].detach())**2).mean() - (distances[:, mask].mean())*training_config['pushaway']
 
             # Calculate time remaining
             steps_done = overall_batch_i + 1
@@ -496,9 +499,9 @@ if __name__ == "__main__":
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
             loss.backward()
-            for param in all_params:
-                if param.grad is None:
-                    param.grad = torch.zeros_like(param)
+            # for param in all_params:
+            #     if param.grad is None:
+            #         param.grad = torch.zeros_like(param)
             gradient_norm = torch.norm(torch.tensor([torch.norm(p.grad, 2).item() for p in all_params if p.grad is not None]), 2)
             if training_config['max_gradient_norm'] > 0:
                 torch.nn.utils.clip_grad_norm_(all_params, training_config['max_gradient_norm'])

@@ -15,12 +15,13 @@ filename_array=('ttt_cpc.py' 'ttt_simsiam.py')
 dtype_array=('bfloat16')
 optimizer_array=('Muon')
 electrode_init_array=('normal')
-dropout_array=(0.0 0.1 0.2)
+dropout_array=(0.0)
 batch_size_array=(100)
 subjects_array=('2' '12345' '1234567890')
 lr_array=(0.001 0.0005)
 nl_array=(10 14 16)
 d_model_array=(192 384 576)
+pushaway_array=(0.01 0.005 0.001)
 # Fixed parameters
 wd=0
 max_gradient_norm=-1
@@ -28,7 +29,7 @@ dtype_index=0
 batch_size_index=0
 optimizer_index=0
 electrode_init_index=0
-random_string='1341'
+random_string='PW'
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))
