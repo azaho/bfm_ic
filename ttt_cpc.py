@@ -556,13 +556,12 @@ if __name__ == "__main__":
                         test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
                     # Convert lists to arrays
-                    n_words_per_chunk = 100
-                    train_features_electrode = np.concatenate(train_features_electrode)[:n_words_per_chunk*len(train_chunks)] #XXX will remove later
-                    train_features_time = np.concatenate(train_features_time)[:n_words_per_chunk*len(train_chunks)]
-                    train_labels = np.concatenate(train_labels).reshape(-1, 1)[:n_words_per_chunk*len(train_chunks)]
-                    test_features_electrode = np.concatenate(test_features_electrode)[:n_words_per_chunk*len(test_chunks)]
-                    test_features_time = np.concatenate(test_features_time)[:n_words_per_chunk*len(test_chunks)]
-                    test_labels = np.concatenate(test_labels).reshape(-1, 1)[:n_words_per_chunk*len(test_chunks)]
+                    train_features_electrode = np.concatenate(train_features_electrode)
+                    train_features_time = np.concatenate(train_features_time)
+                    train_labels = np.concatenate(train_labels)
+                    test_features_electrode = np.concatenate(test_features_electrode)
+                    test_features_time = np.concatenate(test_features_time)
+                    test_labels = np.concatenate(test_labels)
 
                     # Fit linear regression for electrode features
                     electrode_regressor = sklearn.linear_model.LinearRegression()
