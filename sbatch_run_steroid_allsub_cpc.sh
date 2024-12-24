@@ -21,7 +21,7 @@ subjects_array=('2' '12345' '1234567890')
 lr_array=(0.001 0.0005)
 nl_array=(10 14 16)
 d_model_array=(192 384 576)
-pushaway_array=(0.01 0.005 0.001)
+pushaway_array=(0.005 0.001 0.0001)
 # Fixed parameters
 wd=0
 max_gradient_norm=-1
