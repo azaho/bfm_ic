@@ -565,19 +565,17 @@ if __name__ == "__main__":
 
                     print(test_labels.shape, test_features_electrode.shape, test_features_time.shape)
 
-                    # Fit linear regression and evaluate using electrode features
-                    slope_e, intercept_e, r_value_e, p_value_e, std_err_e = stats.linregress(train_features_electrode, train_labels)
-                    train_r_squared_electrode = r_value_e ** 2
-                    test_predicted_electrode = slope_e * test_features_electrode + intercept_e
-                    test_r_value_electrode = stats.pearsonr(test_labels, test_predicted_electrode)[0]
-                    test_r_squared_electrode = test_r_value_electrode ** 2
+                    # Fit linear regression for electrode features
+                    electrode_regressor = stats.LinearRegression()
+                    electrode_regressor.fit(train_features_electrode, train_labels)
+                    train_r_squared_electrode = electrode_regressor.score(train_features_electrode, train_labels)
+                    test_r_squared_electrode = electrode_regressor.score(test_features_electrode, test_labels)
 
-                    # Fit linear regression and evaluate using time features
-                    slope_t, intercept_t, r_value_t, p_value_t, std_err_t = stats.linregress(train_features_time, train_labels)
-                    train_r_squared_time = r_value_t ** 2
-                    test_predicted_time = slope_t * test_features_time + intercept_t
-                    test_r_value_time = stats.pearsonr(test_labels, test_predicted_time)[0]
-                    test_r_squared_time = test_r_value_time ** 2
+                    # Fit linear regression for time features
+                    time_regressor = stats.LinearRegression()
+                    time_regressor.fit(train_features_time, train_labels)
+                    train_r_squared_time = time_regressor.score(train_features_time, train_labels)
+                    test_r_squared_time = time_regressor.score(test_features_time, test_labels)
 
                     print(f"Electrode features -- Train R-squared: {train_r_squared_electrode:.4f} -- Test R-squared: {test_r_squared_electrode:.4f} -- Time features -- Train R-squared: {train_r_squared_time:.4f} -- Test R-squared: {test_r_squared_time:.4f}")
 
