@@ -28,7 +28,7 @@ dtype_index=0
 batch_size_index=0
 optimizer_index=0
 electrode_init_index=0
-random_string='1339'
+random_string='1340'
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))
