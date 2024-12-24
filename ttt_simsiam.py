@@ -178,7 +178,9 @@ class Muon(torch.optim.Optimizer):
 
             for i, p in enumerate(group['params']):
                 g = p.grad
-                assert g is not None
+                #assert g is not None
+                if g is None:
+                    continue
                 state = self.state[p]
                 if 'momentum_buffer' not in state:
                     state['momentum_buffer'] = torch.zeros_like(g)
