@@ -519,14 +519,14 @@ if __name__ == "__main__":
                     test_chunks = [13, 14, 15]
                     eval_subject_id = 2
                     eval_trial_id = 1
-                    dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
+                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
                     # Collect features and labels for training chunks
                     train_features_electrode = []
                     train_features_time = []
                     train_labels = []
                     for train_chunk in train_chunks:
-                        eval_input = dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        train_labels.append(dataloader.get_chunk_labels(train_chunk))
+                        eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
+                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
@@ -543,8 +543,8 @@ if __name__ == "__main__":
                     test_features_time = []
                     test_labels = []
                     for test_chunk in test_chunks:
-                        eval_input = dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        test_labels.append(dataloader.get_chunk_labels(test_chunk))
+                        eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
+                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
 
                         electrode_output = electrode_transformer(eval_input[:, :, :transformer_config['max_n_electrodes'], :, :], electrode_emb)
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
@@ -556,14 +556,12 @@ if __name__ == "__main__":
                         test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
                     # Convert lists to arrays
-                    train_features_electrode = np.concatenate(train_features_electrode)[:300]
-                    train_features_time = np.concatenate(train_features_time)[:300]
-                    train_labels = np.concatenate(train_labels).reshape(-1, 1)[:300]
-                    test_features_electrode = np.concatenate(test_features_electrode)[:300]
-                    test_features_time = np.concatenate(test_features_time)[:300]
-                    test_labels = np.concatenate(test_labels).reshape(-1, 1)[:300]
-
-                    print(test_labels.shape, test_features_electrode.shape, test_features_time.shape)
+                    train_features_electrode = np.concatenate(train_features_electrode)
+                    train_features_time = np.concatenate(train_features_time)
+                    train_labels = np.concatenate(train_labels).reshape(-1, 1)
+                    test_features_electrode = np.concatenate(test_features_electrode)
+                    test_features_time = np.concatenate(test_features_time)
+                    test_labels = np.concatenate(test_labels).reshape(-1, 1)
 
                     # Fit linear regression for electrode features
                     electrode_regressor = sklearn.linear_model.LinearRegression()
@@ -577,7 +575,8 @@ if __name__ == "__main__":
                     train_r_squared_time = time_regressor.score(train_features_time, train_labels)
                     test_r_squared_time = time_regressor.score(test_features_time, test_labels)
 
-                    print(f"Electrode features -- Train R-squared: {train_r_squared_electrode:.4f} -- Test R-squared: {test_r_squared_electrode:.4f} -- Time features -- Train R-squared: {train_r_squared_time:.4f} -- Test R-squared: {test_r_squared_time:.4f}")
+                    print(f"Electrode features -- Train R2: {train_r_squared_electrode:.4f} -- Test R2: {test_r_squared_electrode:.4f} -- "
+                          f"Time features -- Train R2: {train_r_squared_time:.4f} -- Test R2: {test_r_squared_time:.4f}")
 
 
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
