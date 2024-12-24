@@ -295,10 +295,17 @@ class BrainTreebankDataLoader:
         self.randomize_chunk_order = randomize_chunk_order
         self.randomize_electrode_order = randomize_electrode_order
 
+        self.subject_store = {}
+        for subject_id, trial_id in self.subject_trials:
+            if subject_id not in self.subject_store:
+                self.subject_store[subject_id] = Subject(subject_id)
+
         self.dataloader_store = []
+        self.subject_n_electrodes = {}
         for subject_id, trial_id in self.subject_trials:
             dataloader = BrainTreebankSubjectTrialDataLoader(subject_id, trial_id, trim_electrodes_to=self.trim_electrodes_to, 
                                                              device=device, randomize_chunk_order=self.randomize_chunk_order, p_test_chunks=p_test_chunks)
+            self.subject_n_electrodes[subject_id] = dataloader.n_electrodes
             self.dataloader_store.append(dataloader)
 
         self.subject_electrode_emb_store = {}
@@ -306,11 +313,6 @@ class BrainTreebankDataLoader:
             subject_id, trial_id = self.subject_trials[i]
             if subject_id not in self.subject_electrode_emb_store:
                 self.subject_electrode_emb_store[subject_id] = self._make_electrode_embedding(subject_id)
-        #self.electrode_embeddings_scale = torch.nn.Parameter(torch.tensor(0.1, dtype=transformer_config['dtype'], device=device))
-
-        subject_store = {}
-        for subject_id in self.subject_electrode_emb_store:
-            subject_store[subject_id] = Subject(subject_id)
 
         self.total_steps = self.__len__()
         self.current_step = 0
@@ -318,7 +320,7 @@ class BrainTreebankDataLoader:
         self.current_step_dataloaders = [0 for _ in range(len(self.dataloader_store))]
 
     def _make_electrode_embedding(self, subject_id):
-        n_electrodes = min(self.subject_store[subject_id].n_electrodes, self.trim_electrodes_to)
+        n_electrodes = min(self.subject_n_electrodes[subject_id], self.trim_electrodes_to)
         if transformer_config['electrode_embedding_init'] in ['normal', 'zeros']:
             torch_fun = torch.randn if transformer_config['electrode_embedding_init'] == 'normal' else torch.zeros
             embedding = torch_fun(n_electrodes, transformer_config['d_model'])
