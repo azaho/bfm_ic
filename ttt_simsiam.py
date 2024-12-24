@@ -325,7 +325,7 @@ class BrainTreebankDataLoader:
             torch_fun = torch.randn if transformer_config['electrode_embedding_init'] == 'normal' else torch.zeros
             embedding = torch_fun(n_electrodes, transformer_config['d_model'])
         elif transformer_config['electrode_embedding_init'] == 'coordinates_nograd':
-            coordinates = torch.tensor(self.subject_store[subject_id].get_electrode_coordinates()).float()
+            coordinates = torch.tensor(self.subject_store[subject_id].get_electrode_coordinates()).float()[:n_electrodes]
             if len(coordinates) < n_electrodes:
                 padding = torch.zeros(n_electrodes - len(coordinates), 3, device=coordinates.device)
                 coordinates = torch.cat([coordinates, padding], dim=0)
