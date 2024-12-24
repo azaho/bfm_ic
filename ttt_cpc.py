@@ -555,6 +555,8 @@ if __name__ == "__main__":
                         test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
                         test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
+                    print(electrode_output_mean.shape, time_output_mean.shape, eval_dataloader.get_chunk_labels(test_chunk).shape)
+
                     # Convert lists to arrays
                     n_words_per_chunk = 100
                     train_features_electrode = np.concatenate(train_features_electrode)[:n_words_per_chunk*len(train_chunks)] #XXX will remove later
