@@ -521,6 +521,7 @@ if __name__ == "__main__":
                         subject_trial_dataloader.reset_test()
                         batch_test_loss_store = []
                         for test_batch_i in range(subject_trial_dataloader.test_length(training_config['batch_size'])):
+                            n_electrodes = len(electrode_emb)
                             permutation = torch.randperm(n_electrodes)
                             test_data = subject_trial_dataloader.get_next_test_batch(training_config['batch_size'], permutation=permutation)
                             
@@ -551,8 +552,8 @@ if __name__ == "__main__":
             test_r_squared_time = None
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
-                    train_chunks = np.arange(64)
-                    test_chunks = np.arange(64, 128)
+                    train_chunks = np.arange(48)
+                    test_chunks = np.arange(48, 96)
                     eval_subject_id = 2
                     eval_trial_id = 1
                     eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
