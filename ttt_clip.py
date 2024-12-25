@@ -518,10 +518,10 @@ if __name__ == "__main__":
             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
             time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-            time_output = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-            time_output2 = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+            time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+            time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
 
-            similarity = torch.matmul(time_output, time_output2.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
             loss = 0
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
@@ -584,16 +584,16 @@ if __name__ == "__main__":
                             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
                             time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-                            time_output = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-                            time_output2 = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+                            time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+                            time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
 
-                            similarity = torch.matmul(time_output, time_output2.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+                            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
                             test_loss = 0
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
                             test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
-                            
+
                             batch_test_loss_store.append(test_loss.item())
                             if np.isnan(test_loss.item()):
                                 print(f"Test loss is NaN for subject {subject_id} trial {trial_id} test_batch {test_batch_i}")
