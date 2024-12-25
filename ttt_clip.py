@@ -527,8 +527,6 @@ if __name__ == "__main__":
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
             loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
-            print(loss)
-            exit()
 
             # Calculate average distance between any two vectors in last dimension
             # Reshape to combine first 3 dimensions (batch_size, 1, 1)
@@ -541,8 +539,6 @@ if __name__ == "__main__":
             mask = ~torch.eye(distances.shape[1], dtype=torch.bool, device=distances.device)
             avg_distance = distances[:, mask].mean().item()
             avg_distance_store.append(avg_distance)
-
-            loss = ((time_output[:, :, :, :, :] - time_output2[:, :, :, :, :].detach())**2).mean() - (distances[:, mask].mean())*training_config['pushaway']
 
             # Calculate time remaining
             steps_done = overall_batch_i + 1
@@ -588,7 +584,16 @@ if __name__ == "__main__":
                             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
                             time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-                            test_loss = ((time_output[:, :, :, :, :] - time_output2[:, :, :, :, :].detach())**2).mean()
+                            time_output = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+                            time_output2 = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+
+                            similarity = torch.matmul(time_output, time_output2.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+
+                            test_loss = 0
+                            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
+                            test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+                            test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+                            
                             batch_test_loss_store.append(test_loss.item())
                             if np.isnan(test_loss.item()):
                                 print(f"Test loss is NaN for subject {subject_id} trial {trial_id} test_batch {test_batch_i}")
