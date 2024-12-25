@@ -522,7 +522,12 @@ if __name__ == "__main__":
             time_output2 = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
 
             similarity = torch.matmul(time_output, time_output2.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
-            print(similarity.shape)
+
+            loss = 0
+            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(batch_size, 1).to(device, dtype=transformer_config['dtype'])
+            loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+            loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+            print(loss)
             exit()
 
             # Calculate average distance between any two vectors in last dimension
