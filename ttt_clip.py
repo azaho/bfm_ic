@@ -96,7 +96,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "clip",
+    'model_name': "clip2",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -626,7 +626,7 @@ if __name__ == "__main__":
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
                         eval_input = eval_input[:, :, permutation, :, :]
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[:n_electrodes//2])
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output)
                         
@@ -648,7 +648,7 @@ if __name__ == "__main__":
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
                         eval_input = eval_input[:, :, permutation, :, :]
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[:n_electrodes//2])
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
                         
