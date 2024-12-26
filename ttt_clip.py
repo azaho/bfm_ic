@@ -96,7 +96,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "clip3",
+    'model_name': "clip3_es3",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -610,8 +610,8 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     train_chunks = np.arange(48)
                     test_chunks = np.arange(48, 96)
-                    eval_subject_id = 2
-                    eval_trial_id = 1
+                    eval_subject_id = 3
+                    eval_trial_id = 0
                     eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
                     electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                     # Collect features and labels for training chunks
