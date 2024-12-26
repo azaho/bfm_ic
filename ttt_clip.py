@@ -524,7 +524,7 @@ if __name__ == "__main__":
             similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
             loss = 0
-            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
+            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
             #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
@@ -590,7 +590,7 @@ if __name__ == "__main__":
                             similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
                             test_loss = 0
-                            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
+                            expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
                             #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
