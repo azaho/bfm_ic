@@ -508,15 +508,15 @@ if __name__ == "__main__":
 
             batch_size, _, n_electrodes, n_time_bins, n_freq_features = data.shape
 
-            electrode_output = electrode_transformer(data[:, :, :n_electrodes//2, :, :], electrode_emb[:n_electrodes//2]) 
+            electrode_output = electrode_transformer(data[:, :, :n_electrodes//2, :-1, :], electrode_emb[:n_electrodes//2]) #XXX
             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, :, :], electrode_emb[n_electrodes//2:]) 
+            electrode_output2 = electrode_transformer(data[:, :, n_electrodes//2:, 1:, :], electrode_emb[n_electrodes//2:]) #XXX
             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
-            time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
+            time_output2 = time_transformer(electrode_output2) if training_config['random_string'] == 'NT' else electrode_output2 # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
@@ -526,7 +526,7 @@ if __name__ == "__main__":
             loss = 0
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
-            loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+            #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
             # Calculate average distance between any two vectors in last dimension
             # Reshape to combine first 3 dimensions (batch_size, 1, 1)
@@ -574,15 +574,15 @@ if __name__ == "__main__":
                             
                             n_electrodes = test_data.shape[2]
 
-                            electrode_output = electrode_transformer(test_data[:, :, :n_electrodes//2, :, :], electrode_emb[permutation][:n_electrodes//2]) 
+                            electrode_output = electrode_transformer(test_data[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2]) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output) # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
-                            electrode_output2 = electrode_transformer(test_data[:, :, n_electrodes//2:, :, :], electrode_emb[permutation][n_electrodes//2:]) 
+                            electrode_output2 = electrode_transformer(test_data[:, :, n_electrodes//2:, 1:, :], electrode_emb[permutation][n_electrodes//2:]) 
                             # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                             electrode_output2 = electrode_output2[:, :, 0:1, :, :] # just the CLS token
-                            time_output2 = time_transformer(electrode_output2) # shape: (batch_size, 1, 1, n_time_bins, d_model)
+                            time_output2 = time_transformer(electrode_output2) if training_config['random_string'] == 'NT' else electrode_output2 # shape: (batch_size, 1, 1, n_time_bins, d_model)
 
                             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
                             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
@@ -592,7 +592,7 @@ if __name__ == "__main__":
                             test_loss = 0
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
-                            test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+                            #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
                             batch_test_loss_store.append(test_loss.item())
                             if np.isnan(test_loss.item()):
@@ -622,8 +622,11 @@ if __name__ == "__main__":
                         eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
                         n_electrodes = len(electrode_emb)
+                        permutation = torch.randperm(n_electrodes)
+                        eval_input = eval_input[:, :, :n_electrodes, :, :]
+                        eval_input = eval_input[:, :, permutation, :, :]
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[:n_electrodes//2])
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output)
                         
@@ -641,8 +644,11 @@ if __name__ == "__main__":
                         eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
                         test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
                         n_electrodes = len(electrode_emb)
-                        
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes, :, :], electrode_emb)
+                        permutation = torch.randperm(n_electrodes)
+                        eval_input = eval_input[:, :, :n_electrodes, :, :]
+                        eval_input = eval_input[:, :, permutation, :, :]
+
+                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[:n_electrodes//2])
                         electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                         time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
                         
