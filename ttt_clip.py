@@ -96,7 +96,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "clip3_es3_fixed",
+    'model_name': "clip3_es3_f_p",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -395,6 +395,9 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         self.n_time_bins = transformer_config['max_n_time_bins']
         self.randomize_electrode_order = randomize_electrode_order
 
+        all_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
+        self.words_df = pd.read_csv(all_path)
+
     def get_chunk_input(self, chunk_id, permutation=None):
         chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
@@ -402,9 +405,13 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
             chunk_data = chunk_data[:, permutation, :, :]
         return chunk_data.unsqueeze(1) 
     
-    def get_chunk_labels(self, chunk_id, label_type='rms'):
+    def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True):
         chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
         chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
+        if percentiles: 
+            overall_labels = self.words_df[label_type].to_numpy()
+            if percentiles:
+                chunk_labels = np.array([np.mean(overall_labels < x) for x in chunk_labels])
         return chunk_labels
 
 # if __name__ == "__main__":
