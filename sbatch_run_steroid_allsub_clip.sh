@@ -3,11 +3,11 @@
 #SBATCH --nodes=1                # node count
 #SBATCH --ntasks=8             # 8 tasks total
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
-#SBATCH --mem-per-task=128G       # 128 GB per task
+#SBATCH --mem-per-cpu=8G       # 128 GB per task
+#SBATCH --gpus-per-task=1
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-1      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
-#SBATCH --gres=gpu:8       # Request 8 GPUs per job
 
 source .venv/bin/activate
 
