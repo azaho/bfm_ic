@@ -96,7 +96,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "c",
+    'model_name': "x",
     'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -527,12 +527,16 @@ if __name__ == "__main__":
 
             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-
             similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+
+            electrode_output_reshaped = electrode_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+            electrode_output2_reshaped = electrode_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+            similarity_electrode = torch.matmul(electrode_output_reshaped, electrode_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
             loss = 0
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+            loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange)
             #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
             # Calculate average distance between any two vectors in last dimension
@@ -593,12 +597,16 @@ if __name__ == "__main__":
 
                             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
                             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-
                             similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+
+                            electrode_output_reshaped = electrode_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+                            electrode_output2_reshaped = electrode_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
+                            similarity_electrode = torch.matmul(electrode_output_reshaped, electrode_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
 
                             test_loss = 0
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+                            test_loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange)
                             #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
                             batch_test_loss_store.append(test_loss.item())
