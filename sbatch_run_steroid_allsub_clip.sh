@@ -35,7 +35,7 @@ random_string_index=0
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))
-    optimizer_index=0
+optimizer_index=0
 
 # Run 8 combinations in parallel using all 8 GPUs
 for gpu_id in {0..7}; do
@@ -56,7 +56,7 @@ for gpu_id in {0..7}; do
 
     srun --exclusive -n1 --cpus-per-task=16 --mem=128G --gres=gpu:1 python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
     --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} --pushaway ${pushaway_array[pushaway_index]} \
-    --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay $wd --max_gradient_norm $max_gradient_norm \
+    --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin 0.0 --weight_decay $wd --max_gradient_norm $max_gradient_norm \
     --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip3 --nl ${nl_array[nl_index]} &
 done
 
