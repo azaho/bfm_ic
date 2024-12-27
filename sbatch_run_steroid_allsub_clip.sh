@@ -3,7 +3,6 @@
 #SBATCH --nodes=1                # node count
 #SBATCH --ntasks=8             # 8 tasks total
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
-#SBATCH --mem-per-gpu=128G       # 128 GB per task
 #SBATCH --gpus-per-task=1
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-1      # 14 jobs (108/8 rounded up)
