@@ -3,7 +3,7 @@
 #SBATCH -n 1                # node count
 #SBATCH --mem=1024G    # memory per cpu-core
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-8      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-0      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 #SBATCH --gres=gpu:8       # Request 8 GPUs per job
 #SBATCH --cpus-per-gpu=16    # Request 8 CPU cores per GPU
@@ -14,17 +14,17 @@ source .venv/bin/activate
 filename_array=('ttt_clip.py')
 dtype_array=('bfloat16')
 optimizer_array=('Muon')
-electrode_init_array=('coordinates_nograd' 'zeros')
+electrode_init_array=('coordinates_nograd' 'zeros' 'normal')
 dropout_array=(0.0 0.2 0.5)
 batch_size_array=(100)
 subjects_array=('3' '1234567890')
-lr_array=(0.001 0.0007 0.0013)
+lr_array=(0.001 0.0015)
 nl_array=(10 14)
 d_model_array=(192 384)
 pushaway_array=(0)
 random_string_array=('NE')
+wd_array=(0 0.0001)
 # Fixed parameters
-wd=0
 max_gradient_norm=-1
 dtype_index=0
 batch_size_index=0
@@ -47,11 +47,12 @@ for gpu_id in {0..7}; do
     fi
 
     # Calculate indices for each hyperparameter
-    subjects_index=$((index % 2))
-    lr_index=$((index / 2 % 3))
-    electrode_init_index=$((index / 6 % 2))
-    dropout_index=$((index / 12 % 3))
-    nl_index=$((index / 36))
+    lr_index=$((index % 2))
+    nl_index=$((index / 2 % 2))
+    wd_index=$((index / 4 % 2))
+    subjects_index=$((index / 8 % 2))
+    electrode_init_index=$((index / 16 % 3))
+    dropout_index=$((index / 32 % 3))
     d_model_index=$((nl_index))
 
     if [ $subjects_index -ne 1 ]; then
