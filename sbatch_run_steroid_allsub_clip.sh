@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=brain_foundation_model_training          # Name of the job
-#SBATCH --nodes=1                # node count
 #SBATCH --ntasks=8             # 8 tasks total
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
 #SBATCH --gpus-per-task=1
+#SBATCH --mem-per-task=128G
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-1      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
@@ -22,7 +22,7 @@ lr_array=(0.001 0.0015)
 nl_array=(10 14)
 d_model_array=(192 384)
 pushaway_array=(0)
-random_string_array=('NE')
+random_string_array=('NEx')
 wd_array=(0 0.0001)
 # Fixed parameters
 max_gradient_norm=-1
