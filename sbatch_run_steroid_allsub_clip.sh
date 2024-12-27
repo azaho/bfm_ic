@@ -3,7 +3,7 @@
 #SBATCH -n 1                # node count
 #SBATCH --mem=1024G    # memory per cpu-core
 #SBATCH -t 16:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-0      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-1      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 #SBATCH --gres=gpu:8       # Request 8 GPUs per job
 #SBATCH --cpus-per-gpu=16    # Request 8 CPU cores per GPU
