@@ -180,6 +180,7 @@ def main():
 
         train_features_time = []
         train_labels = []
+        train_losses = []
         for train_chunk in train_chunks:
             for opt in optimizers:
                 opt.zero_grad()
@@ -203,6 +204,7 @@ def main():
             train_features_time.append(time_output_mean.detach().cpu().float().numpy())
             # Use MSE loss between features and labels for fine-tuning
             loss = torch.mean((model_output - chunk_labels)**2)
+            train_losses.append(loss.item())
 
             if epoch_idx >= 0:
                 loss.backward()
@@ -219,11 +221,14 @@ def main():
         test_features_electrode = []
         test_features_time = []
         test_labels = []
+        test_losses = []
 
         with torch.no_grad():
             for test_chunk in test_chunks:
                 eval_input = eval_data_loader.get_chunk_input(test_chunk)
-                test_labels.append(eval_data_loader.get_chunk_labels(test_chunk))
+                chunk_labels = eval_data_loader.get_chunk_labels(test_chunk)
+                test_labels.append(chunk_labels)
+                chunk_labels = torch.tensor(chunk_labels, device=device, dtype=transformer_config['dtype'])
 
                 n_electrodes = eval_input.shape[2]
                 permutation = torch.randperm(n_electrodes)
@@ -233,9 +238,12 @@ def main():
                                                       subject_electrode_emb_store[eval_subject_id][permutation][:n_electrodes//2])
                 electrode_output = electrode_output[:, :, 0:1, :, :]
                 time_output = time_transformer(electrode_output)
+                time_output_mean = time_output.mean(dim=[1, 2, 3])
+                model_output = linear_layer(time_output_mean)
 
-                time_output_mean = time_output.mean(dim=[1, 2, 3]).cpu().float().numpy()
-                test_features_time.append(time_output_mean)
+                test_loss = torch.mean((model_output - chunk_labels)**2)
+                test_losses.append(test_loss.item())
+                test_features_time.append(time_output_mean.cpu().float().numpy())
 
         train_features_time = np.concatenate(train_features_time, axis=0)
         test_features_time = np.concatenate(test_features_time, axis=0)
@@ -252,8 +260,12 @@ def main():
         train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
         test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
+        avg_train_loss = np.mean(train_losses)
+        avg_test_loss = np.mean(test_losses)
+
         print(f"Time features -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- "
               f"Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
+        print(f"Average losses -- Train: {avg_train_loss:.4f} -- Test: {avg_test_loss:.4f}")
 
         # if wandb_log:
         #     wandb.log({
