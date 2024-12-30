@@ -177,7 +177,25 @@ def main():
 
     n_epochs = training_config['n_epochs']
     for epoch_idx in range(-1, n_epochs):
-        print(f"\n===> Fine-tune epoch {epoch_idx+1}/{n_epochs}")
+
+        if epoch_idx == -1:
+            # Initially freeze all params except linear layer
+            for param in electrode_transformer.parameters():
+                param.requires_grad = False
+            for param in time_transformer.parameters():
+                param.requires_grad = False
+            subject_electrode_emb_store[eval_subject_id].requires_grad = False
+            print("\n===> Fine-tune epoch 0: Training only linear layer")
+        elif epoch_idx == 9:
+            # Unfreeze all params after 10 epochs
+            for param in electrode_transformer.parameters():
+                param.requires_grad = True 
+            for param in time_transformer.parameters():
+                param.requires_grad = True
+            subject_electrode_emb_store[eval_subject_id].requires_grad = True
+            print("\n===> Fine-tune epoch 10: Unfreezing all parameters")
+        else:
+            print(f"\n===> Fine-tune epoch {epoch_idx+1}/{n_epochs}")
 
         train_features_time = []
         train_labels = []
