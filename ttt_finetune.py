@@ -247,8 +247,8 @@ def main():
 
         # Evaluate model predictions on train and test sets
         with torch.no_grad():
-            train_features = torch.tensor(train_features_time, device=device, dtype=transformer_config['dtype'])
-            test_features = torch.tensor(test_features_time, device=device, dtype=transformer_config['dtype'])
+            train_features = torch.concat(train_features_time, dim=0).to(device, dtype=transformer_config['dtype'])
+            test_features = torch.concat(test_features_time, dim=0).to(device, dtype=transformer_config['dtype'])
             
             train_pred = linear_layer(train_features).cpu().float().numpy()
             test_pred = linear_layer(test_features).cpu().float().numpy()
