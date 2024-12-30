@@ -204,10 +204,10 @@ def main():
             loss = torch.mean((model_output - chunk_labels)**2)
 
             loss.backward()
-            for opt, sched in zip(optimizers, schedulers):
+            for opt in optimizers:
                 opt.step()
 
-            if (len(train_features_time) + 1) % 10 == 0:
+            if (len(train_features_time) + 1) % 8 == 0:
                 elapsed = time.time() - fine_tune_start
                 print(f"Chunk {len(train_features_time)+1}/{len(train_chunks)}, loss={loss.item():.4f}, elapsed={elapsed:.1f}s")
                 # if wandb_log:
