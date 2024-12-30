@@ -154,6 +154,7 @@ def main():
     lr_max = float(training_config.get('lr_max', 1e-3))
     weight_decay = float(training_config.get('weight_decay', 0.0))
     optimizer_type = training_config.get('optimizer', 'Muon')
+    optimizer_type = 'AdamW'
 
     if optimizer_type == 'Muon':
         optimizers = [
