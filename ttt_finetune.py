@@ -125,7 +125,7 @@ def main():
     assert os.path.exists(electrode_emb_path), f"No subject_electrode_embeddings.pth found in {args.dir_name}"
     electrode_transformer.load_state_dict(torch.load(electrode_sd_path, map_location=device, weights_only=True))
     time_transformer.load_state_dict(torch.load(time_sd_path, map_location=device, weights_only=True))
-    subject_electrode_emb_store = torch.load(electrode_emb_path, map_location=device)
+    subject_electrode_emb_store = torch.load(electrode_emb_path, map_location=device, weights_only=True)
     print("[fine_tune.py] Successfully loaded pretrained model weights and electrode embeddings.")
 
     print("[fine_tune.py] Building data loaders for evaluation sets...")
@@ -141,7 +141,7 @@ def main():
     # ---------------------------------------------------------------------
     # 6) Create the same optimizer(s) used originally
     # ---------------------------------------------------------------------
-    linear_layer = torch.nn.Linear(transformer_config['d_model'], 1)
+    linear_layer = torch.nn.Linear(transformer_config['d_model'], 1).to(device, dtype=transformer_config['dtype'])
     all_model_params = list(electrode_transformer.parameters()) + list(time_transformer.parameters()) + list(linear_layer.parameters())
     all_params = all_model_params + [subject_electrode_emb_store[eval_subject_id]]
 
