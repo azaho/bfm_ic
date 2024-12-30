@@ -144,7 +144,7 @@ def main():
     linear_layer = torch.nn.Linear(transformer_config['d_model'], 1).to(device, dtype=transformer_config['dtype'])
     all_model_params = list(electrode_transformer.parameters()) + list(time_transformer.parameters()) + list(linear_layer.parameters())
     all_params = all_model_params + [subject_electrode_emb_store[eval_subject_id]]
-    all_params = list(linear_layer.parameters())
+    #all_params = list(linear_layer.parameters())
 
     # Example from your code: if optimizer == 'Muon', etc.
     # We'll replicate the same logic. Let's assume Muon + Adam for demonstration:
@@ -182,10 +182,12 @@ def main():
         train_features_time = []
         train_labels = []
         train_losses = []
+        
+        # Zero gradients at start of epoch
+        for opt in optimizers:
+            opt.zero_grad()
+            
         for train_chunk in train_chunks:
-            for opt in optimizers:
-                opt.zero_grad()
-
             eval_input = eval_data_loader.get_chunk_input(train_chunk)
             chunk_labels = eval_data_loader.get_chunk_labels(train_chunk)
             train_labels.append(chunk_labels)
@@ -209,14 +211,17 @@ def main():
 
             if epoch_idx >= 0:
                 loss.backward()
-                for opt in optimizers:
-                    opt.step()
 
             if (len(train_features_time) + 1) % 8 == 0:
                 elapsed = time.time() - fine_tune_start
                 print(f"Chunk {len(train_features_time)+1}/{len(train_chunks)}, loss={loss.item():.4f}, elapsed={elapsed:.1f}s")
                 # if wandb_log:
                 #     wandb.log({"finetune_loss": loss.item()})
+        
+        # Step optimizers at end of epoch
+        if epoch_idx >= 0:
+            for opt in optimizers:
+                opt.step()
 
         # Evaluation on test chunks
         test_features_electrode = []
