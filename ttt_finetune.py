@@ -245,20 +245,18 @@ def main():
                 test_losses.append(test_loss.item())
                 test_features_time.append(time_output_mean.cpu().float().numpy())
 
-        train_features_time = np.concatenate(train_features_time, axis=0)
-        test_features_time = np.concatenate(test_features_time, axis=0)
-        train_labels = np.concatenate(train_labels, axis=0)
-        test_labels = np.concatenate(test_labels, axis=0)
+        # Evaluate model predictions on train and test sets
+        with torch.no_grad():
+            train_features = torch.tensor(train_features_time, device=device, dtype=transformer_config['dtype'])
+            test_features = torch.tensor(test_features_time, device=device, dtype=transformer_config['dtype'])
+            
+            train_pred = linear_layer(train_features).cpu().numpy()
+            test_pred = linear_layer(test_features).cpu().numpy()
 
-        # Time features evaluation
-        time_regressor = sklearn.linear_model.LinearRegression()
-        time_regressor.fit(train_features_time, train_labels)
-        train_pred_time = time_regressor.predict(train_features_time)
-        test_pred_time = time_regressor.predict(test_features_time)
-        train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
-        test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
-        train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
-        test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
+            train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred)
+            test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred)
+            train_r_time = np.corrcoef(train_labels, train_pred)[0, 1]
+            test_r_time = np.corrcoef(test_labels, test_pred)[0, 1]
 
         avg_train_loss = np.mean(train_losses)
         avg_test_loss = np.mean(test_losses)
