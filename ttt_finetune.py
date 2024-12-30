@@ -144,6 +144,7 @@ def main():
     linear_layer = torch.nn.Linear(transformer_config['d_model'], 1).to(device, dtype=transformer_config['dtype'])
     all_model_params = list(electrode_transformer.parameters()) + list(time_transformer.parameters()) + list(linear_layer.parameters())
     all_params = all_model_params + [subject_electrode_emb_store[eval_subject_id]]
+    all_params = list(linear_layer.parameters())
 
     # Example from your code: if optimizer == 'Muon', etc.
     # We'll replicate the same logic. Let's assume Muon + Adam for demonstration:
