@@ -123,8 +123,8 @@ def main():
     assert os.path.exists(electrode_sd_path), f"No model_electrode_state_dict.pth found in {args.dir_name}"
     assert os.path.exists(time_sd_path), f"No model_time_state_dict.pth found in {args.dir_name}" 
     assert os.path.exists(electrode_emb_path), f"No subject_electrode_embeddings.pth found in {args.dir_name}"
-    electrode_transformer.load_state_dict(torch.load(electrode_sd_path, map_location=device), only_weights=True)
-    time_transformer.load_state_dict(torch.load(time_sd_path, map_location=device), only_weights=True)
+    electrode_transformer.load_state_dict(torch.load(electrode_sd_path, map_location=device), weights_only=True)
+    time_transformer.load_state_dict(torch.load(time_sd_path, map_location=device), weights_only=True)
     subject_electrode_emb_store = torch.load(electrode_emb_path, map_location=device)
     print("[fine_tune.py] Successfully loaded pretrained model weights and electrode embeddings.")
 
