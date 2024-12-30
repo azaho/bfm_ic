@@ -175,7 +175,7 @@ def main():
     fine_tune_start = time.time()
 
     n_epochs = training_config['n_epochs']
-    for epoch_idx in range(n_epochs):
+    for epoch_idx in range(-1, n_epochs):
         print(f"\n===> Fine-tune epoch {epoch_idx+1}/{n_epochs}")
 
         train_features_time = []
@@ -204,9 +204,10 @@ def main():
             # Use MSE loss between features and labels for fine-tuning
             loss = torch.mean((model_output - chunk_labels)**2)
 
-            loss.backward()
-            for opt in optimizers:
-                opt.step()
+            if epoch_idx >= 0:
+                loss.backward()
+                for opt in optimizers:
+                    opt.step()
 
             if (len(train_features_time) + 1) % 8 == 0:
                 elapsed = time.time() - fine_tune_start
