@@ -18,12 +18,12 @@ args = argparse.Namespace()
 args.lrmax = 0.001
 args.lrmin = 0.001
 args.bs = 100
-args.nl = 15
-args.dm = 384
+args.nl = 10
+args.dm = 192
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 12
-args.dr = 0.0
+args.dr = 0.5
 args.rs = "" 
 args.lrwm = 0
 args.wait_n_intervals = 0
@@ -31,8 +31,8 @@ args.weight_decay = 0.000
 args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
-args.wandb_project = ""
-args.subjects = "1234567890"
+args.wandb_project = "bfm_clip_deepfinetuningtests"
+args.subjects = "3"
 args.pushaway = 0.00
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -73,7 +73,7 @@ for subject in args.subjects:
 
 training_config = {
     'n_epochs': 200,
-    'save_network_every_n_epochs': 20,
+    'save_network_every_n_epochs': 1, # XXX
     'save_losses_every_n_batches': 20,
     'save_test_losses_every_n_batches': 100,
     'save_eval_every_n_batches': 100,
@@ -96,8 +96,8 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "x",
-    'max_n_electrodes': 128,#158,
+    'model_name': "t", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
+    'max_n_electrodes': 158,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
     'd_model': args.dm,
@@ -760,11 +760,13 @@ if __name__ == "__main__":
                         }, f, indent=4)
                 torch.save(electrode_transformer.state_dict(), f'{dir_name}/model_electrode_state_dict.pth')
                 torch.save(time_transformer.state_dict(), f'{dir_name}/model_time_state_dict.pth')
-                print(f"Saved losses and model after batch {overall_batch_i+1}")
+                torch.save(dataloader.subject_electrode_emb_store, f'{dir_name}/subject_electrode_embeddings.pth')
+                print(f"Saved losses, model, and electrode embeddings after batch {overall_batch_i+1}")
         # Save model for this epoch
         if (epoch_i + 1) % training_config['save_network_every_n_epochs'] == 0:
             torch.save(electrode_transformer.state_dict(), f'{dir_name}/model_electrode_state_dict_epoch{epoch_i+1}.pth')
             torch.save(time_transformer.state_dict(), f'{dir_name}/model_time_state_dict_epoch{epoch_i+1}.pth')
-            print(f"Saved model checkpoint for epoch {epoch_i+1}")
+            torch.save(dataloader.subject_electrode_emb_store, f'{dir_name}/subject_electrode_embeddings_epoch{epoch_i+1}.pth')
+            print(f"Saved model and electrode embeddings checkpoint for epoch {epoch_i+1}")
     if wandb_log:
         wandb.finish()
