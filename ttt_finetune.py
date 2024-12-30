@@ -249,8 +249,8 @@ def main():
         with torch.no_grad():
             train_features_time = np.concatenate(train_features_time, axis=0)
             test_features_time = np.concatenate(test_features_time, axis=0)
-            train_labels = np.concatenate(train_labels, axis=0)
-            test_labels = np.concatenate(test_labels, axis=0)
+            train_labels = np.concatenate(train_labels, axis=0).reshape(-1, 1)
+            test_labels = np.concatenate(test_labels, axis=0).reshape(-1, 1)
 
             train_features = torch.tensor(train_features_time, device=device, dtype=transformer_config['dtype'])
             test_features = torch.tensor(test_features_time, device=device, dtype=transformer_config['dtype'])
