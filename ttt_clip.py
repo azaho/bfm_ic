@@ -97,7 +97,7 @@ wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
     'model_name': "t", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
-    'max_n_electrodes': 158,#158,
+    'max_n_electrodes': 128,#158,
     'n_freq_features': 37,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
     'd_model': args.dm,
@@ -537,7 +537,7 @@ if __name__ == "__main__":
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
             expanded_arange_electrode = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-2, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
-            loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
+            #loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
             #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
             # Calculate average distance between any two vectors in last dimension
@@ -608,7 +608,7 @@ if __name__ == "__main__":
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
                             expanded_arange_electrode = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-2, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
-                            test_loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
+                            #test_loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
                             #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
                             batch_test_loss_store.append(test_loss.item())
