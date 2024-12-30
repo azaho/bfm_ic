@@ -115,12 +115,11 @@ def main():
     transformer_config['dtype'] = getattr(torch, str(transformer_config['dtype']).replace('torch.', ''), torch.float32)
     transformer_config['device'] = device
     training_config['n_epochs'] = args.n_epochs  # override with our fine-tune epochs
-
     electrode_transformer = ElectrodeTransformer(config=transformer_config, device=device).to(device, dtype=transformer_config['dtype'])
     time_transformer = TimeTransformer(config=transformer_config, device=device).to(device, dtype=transformer_config['dtype'])
-    electrode_sd_path = os.path.join(args.dir_name, 'model_electrode_state_dict.pth')
-    time_sd_path = os.path.join(args.dir_name, 'model_time_state_dict.pth')
-    electrode_emb_path = os.path.join(args.dir_name, 'subject_electrode_embeddings.pth')
+    electrode_sd_path = os.path.join('training_results', args.dir_name, 'model_electrode_state_dict.pth')
+    time_sd_path = os.path.join('training_results', args.dir_name, 'model_time_state_dict.pth')
+    electrode_emb_path = os.path.join('training_results', args.dir_name, 'subject_electrode_embeddings.pth')
     assert os.path.exists(electrode_sd_path), f"No model_electrode_state_dict.pth found in {args.dir_name}"
     assert os.path.exists(time_sd_path), f"No model_time_state_dict.pth found in {args.dir_name}" 
     assert os.path.exists(electrode_emb_path), f"No subject_electrode_embeddings.pth found in {args.dir_name}"
