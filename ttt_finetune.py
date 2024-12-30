@@ -141,7 +141,8 @@ def main():
     # ---------------------------------------------------------------------
     # 6) Create the same optimizer(s) used originally
     # ---------------------------------------------------------------------
-    all_model_params = list(electrode_transformer.parameters()) + list(time_transformer.parameters())
+    linear_layer = torch.nn.Linear(transformer_config['d_model'], 1)
+    all_model_params = list(electrode_transformer.parameters()) + list(time_transformer.parameters()) + list(linear_layer.parameters())
     all_params = all_model_params + [subject_electrode_emb_store[eval_subject_id]]
 
     # Example from your code: if optimizer == 'Muon', etc.
@@ -196,9 +197,11 @@ def main():
             electrode_output = electrode_output[:, :, 0:1, :, :]  # just the CLS token
             time_output = time_transformer(electrode_output)
             time_output_mean = time_output.mean(dim=[1, 2, 3])
+            model_output = linear_layer(time_output_mean)
+
             train_features_time.append(time_output_mean.detach().cpu().float().numpy())
             # Use MSE loss between features and labels for fine-tuning
-            loss = torch.mean((time_output_mean - chunk_labels)**2)
+            loss = torch.mean((model_output - chunk_labels)**2)
 
             loss.backward()
             for opt, sched in zip(optimizers, schedulers):
