@@ -250,8 +250,8 @@ def main():
             train_features = torch.tensor(train_features_time, device=device, dtype=transformer_config['dtype'])
             test_features = torch.tensor(test_features_time, device=device, dtype=transformer_config['dtype'])
             
-            train_pred = linear_layer(train_features).cpu().numpy()
-            test_pred = linear_layer(test_features).cpu().numpy()
+            train_pred = linear_layer(train_features).cpu().float().numpy()
+            test_pred = linear_layer(test_features).cpu().float().numpy()
 
             train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred)
             test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred)
