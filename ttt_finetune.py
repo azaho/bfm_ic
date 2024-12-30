@@ -14,12 +14,83 @@ import sklearn
 #   - Subject, BrainTreebankDataLoader, Muon, etc. (from braintreebank_utils)
 # Adjust these imports as needed for your actual file structure:
 from transformer_architecture_cpc import ElectrodeTransformer, TimeTransformer
-from braintreebank_utils import Subject
-from braintreebank_utils import BrainTreebankSubjectTrialBenchmarkDataLoader
-from braintreebank_utils import Muon
+
+def zeroth_power_via_newtonschulz5(G, steps=5, eps=1e-7):
+    assert len(G.shape) == 2
+    a, b, c = (3.4445, -4.7750,  2.0315)
+    X = G.bfloat16() / (G.norm() + eps)
+    if G.size(0) > G.size(1):
+        X = X.T
+    for _ in range(steps):
+        A = X @ X.T
+        B = b * A + c * A @ A
+        X = a * X + B @ X
+    if G.size(0) > G.size(1):
+        X = X.T
+    return X.to(G.dtype)
+class Muon(torch.optim.Optimizer):
+    def __init__(self, params, lr=0.02, momentum=0.95, nesterov=True,
+                backend='newtonschulz5', backend_steps=5):
+        defaults = dict(
+            lr=lr,
+            momentum=momentum,
+            nesterov=nesterov,
+            backend=backend,
+            backend_steps=backend_steps
+        )
+        super().__init__(params, defaults)
+    def step(self):
+        for group in self.param_groups:
+            lr = group['lr']
+            momentum = group['momentum']
+            zeropower_backend = zeroth_power_via_newtonschulz5
+
+            for i, p in enumerate(group['params']):
+                g = p.grad
+                #assert g is not None
+                if g is None:
+                    continue
+                state = self.state[p]
+                if 'momentum_buffer' not in state:
+                    state['momentum_buffer'] = torch.zeros_like(g)
+                buf = state['momentum_buffer']
+                buf.mul_(momentum).add_(g)
+                if group['nesterov']:
+                    g = g.add(buf, alpha=momentum)
+                g = zeropower_backend(g, steps=group['backend_steps'])
+                p.data.add_(g, alpha=-lr)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"[fine_tune.py] Using device: {device}")
+
+class BrainTreebankSubjectTrialBenchmarkDataLoader:
+    def __init__(self, subject_id, trial_id, transformer_config, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True):
+        self.subject_id = subject_id
+        self.trial_id = trial_id
+        self.transformer_config = transformer_config
+        self.trim_electrodes_to = trim_electrodes_to
+        self.device = device
+        self.n_time_bins = transformer_config['max_n_time_bins']
+        self.randomize_electrode_order = randomize_electrode_order
+
+        all_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
+        self.words_df = pd.read_csv(all_path)
+
+    def get_chunk_input(self, chunk_id, permutation=None):
+        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+        chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=self.transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+        if permutation is not None:
+            chunk_data = chunk_data[:, permutation, :, :]
+        return chunk_data.unsqueeze(1) 
+    
+    def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True):
+        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
+        chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
+        if percentiles: 
+            overall_labels = self.words_df[label_type].to_numpy()
+            if percentiles:
+                chunk_labels = np.array([np.mean(overall_labels < x) for x in chunk_labels])
+        return chunk_labels
 
 def main():
     parser = argparse.ArgumentParser(description="Fine-tune a pretrained model on an evaluation dataset.")
@@ -66,7 +137,7 @@ def main():
     eval_subject_id = 3  # Using same defaults as in clip code
     eval_trial_id = 0
 
-    eval_data_loader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
+    eval_data_loader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, transformer_config)
 
     # ---------------------------------------------------------------------
     # 6) Create the same optimizer(s) used originally
