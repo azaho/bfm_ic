@@ -105,7 +105,7 @@ def main():
     # ---------------------------------------------------------------------
     # 1) Load original metadata and training configuration from dir_name
     # ---------------------------------------------------------------------
-    metadata_path = os.path.join(args.dir_name, 'metadata.json')
+    metadata_path = os.path.join('training_results', args.dir_name, 'metadata.json')
     assert os.path.exists(metadata_path), f"No metadata.json found in {args.dir_name}"
     with open(metadata_path, 'r') as f:
         meta = json.load(f)
