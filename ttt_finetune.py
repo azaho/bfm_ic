@@ -188,7 +188,8 @@ def main():
         # Zero gradients at start of epoch
         for opt in optimizers:
             opt.zero_grad()
-            
+        
+        torch.cuda.empty_cache()
         # Freeze/unfreeze parameters based on epoch
         if epoch_idx < 10:
             # Freeze everything except linear layer
