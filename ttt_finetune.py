@@ -284,9 +284,7 @@ def main():
             
             train_pred = linear_layer(train_features).cpu().float().numpy().reshape(-1)
             test_pred = linear_layer(test_features).cpu().float().numpy().reshape(-1)
-            print(train_pred.shape, train_labels.shape)
-            print(train_pred[::100])
-            print(train_labels[::100])
+            
             train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred)
             test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred)
             train_r_time = np.corrcoef(train_labels, train_pred)[0, 1]

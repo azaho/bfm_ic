@@ -72,7 +72,7 @@ for subject in args.subjects:
     train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject)
 
 training_config = {
-    'n_epochs': 200,
+    'n_epochs': 1000,
     'save_network_every_n_epochs': 1, # XXX
     'save_losses_every_n_batches': 20,
     'save_test_losses_every_n_batches': 100,
