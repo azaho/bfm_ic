@@ -176,26 +176,10 @@ def main():
     fine_tune_start = time.time()
 
     n_epochs = training_config['n_epochs']
-    for epoch_idx in range(-1, n_epochs):
-
-        if epoch_idx == -1:
-            # Initially freeze all params except linear layer
-            for param in electrode_transformer.parameters():
-                param.requires_grad = False
-            for param in time_transformer.parameters():
-                param.requires_grad = False
-            subject_electrode_emb_store[eval_subject_id].requires_grad = False
-            print("\n===> Fine-tune epoch 0: Training only linear layer")
-        elif epoch_idx == 9:
-            # Unfreeze all params after 10 epochs
-            for param in electrode_transformer.parameters():
-                param.requires_grad = True 
-            for param in time_transformer.parameters():
-                param.requires_grad = True
-            subject_electrode_emb_store[eval_subject_id].requires_grad = True
-            print("\n===> Fine-tune epoch 10: Unfreezing all parameters")
-        else:
-            print(f"\n===> Fine-tune epoch {epoch_idx+1}/{n_epochs}")
+    for epoch_idx in range(n_epochs):
+        print(f"\nEpoch {epoch_idx}")
+        if epoch_idx == 10:
+            print("Switching from linear-only to full network training...")
 
         train_features_time = []
         train_labels = []
@@ -204,6 +188,26 @@ def main():
         # Zero gradients at start of epoch
         for opt in optimizers:
             opt.zero_grad()
+            
+        # Freeze/unfreeze parameters based on epoch
+        if epoch_idx < 10:
+            # Freeze everything except linear layer
+            for param in electrode_transformer.parameters():
+                param.requires_grad = False
+            for param in time_transformer.parameters():
+                param.requires_grad = False
+            subject_electrode_emb_store[eval_subject_id].requires_grad = False
+            for param in linear_layer.parameters():
+                param.requires_grad = True
+        else:
+            # Unfreeze all parameters
+            for param in electrode_transformer.parameters():
+                param.requires_grad = True
+            for param in time_transformer.parameters():
+                param.requires_grad = True
+            subject_electrode_emb_store[eval_subject_id].requires_grad = True
+            for param in linear_layer.parameters():
+                param.requires_grad = True
             
         for train_chunk in train_chunks:
             eval_input = eval_data_loader.get_chunk_input(train_chunk)
@@ -227,8 +231,7 @@ def main():
             loss = torch.mean((model_output - chunk_labels)**2)
             train_losses.append(loss.item())
 
-            if epoch_idx >= 0:
-                loss.backward()
+            loss.backward()
 
             if (len(train_features_time) + 1) % 8 == 0:
                 elapsed = time.time() - fine_tune_start
@@ -237,9 +240,8 @@ def main():
                 #     wandb.log({"finetune_loss": loss.item()})
         
         # Step optimizers at end of epoch
-        if epoch_idx >= 0:
-            for opt in optimizers:
-                opt.step()
+        for opt in optimizers:
+            opt.step()
 
         # Evaluation on test chunks
         test_features_electrode = []
