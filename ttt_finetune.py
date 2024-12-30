@@ -235,6 +235,11 @@ def main():
                 time_output_mean = time_output.mean(dim=[1, 2, 3]).cpu().float().numpy()
                 test_features_time.append(time_output_mean)
 
+        train_features_time = np.concatenate(train_features_time, axis=0)
+        test_features_time = np.concatenate(test_features_time, axis=0)
+        train_labels = np.concatenate(train_labels, axis=0)
+        test_labels = np.concatenate(test_labels, axis=0)
+
         # Time features evaluation
         time_regressor = sklearn.linear_model.LinearRegression()
         time_regressor.fit(train_features_time, train_labels)
