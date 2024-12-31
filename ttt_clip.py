@@ -77,6 +77,8 @@ for subject in args.subjects:
     else: subject = int(subject)
     train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject)
 
+train_subject_trials = [(3, 1), (3, 2)] #XXX
+
 training_config = {
     'n_epochs': 1000,
     'save_network_every_n_epochs': 100,
@@ -84,7 +86,7 @@ training_config = {
     'save_test_losses_every_n_batches': 100,
     'save_eval_every_n_batches': 100,
     'p_test_chunks': 0.1,
-
+ 
     'batch_size': args.bs,
     'train_subject_trials': train_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
     'lr_max': args.lrmax,
@@ -106,7 +108,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "t", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
+    'model_name': "tOOD", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
     'max_n_electrodes': 158,#158,
     'n_freq_features': 37 if args.spectrogram else 256,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -668,7 +670,7 @@ class BrainTreebankDataLoader:
         return batch, electrode_emb, (subject_id, trial_id)
 
 class BrainTreebankSubjectTrialBenchmarkDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True, p_test_chunks=0.5, test_chunks_interleaved=False):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True, p_test_chunks=0.2, test_chunks_interleaved=False):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
@@ -813,7 +815,7 @@ if __name__ == "__main__":
         )
 
     eval_subject_id = 3
-    eval_trial_ids = [0, 1, 2]
+    eval_trial_ids = [0]
     eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
                                                                      spectrogram=transformer_config['spectrogram'], 
                                                                      cache_in_memory=True, 
@@ -1076,7 +1078,7 @@ if __name__ == "__main__":
                               f"Time -- Train AUC: {train_roc_time:.4f} (R2: {train_r_squared_time:.4f}, R: {train_r_time:.4f}) -- Test AUC: {test_roc_time:.4f} (R2: {test_r_squared_time:.4f}, R: {test_r_time:.4f})")
 
 
-            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
+            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s -- Temp param: {temp_clip_param:.4f}")
             if wandb_log:
                 log_dict = {
                     "loss": loss.item(),
