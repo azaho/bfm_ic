@@ -79,7 +79,7 @@ for subject in args.subjects:
     train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject and (subject_id, trial_id) not in all_eval_subject_trials)
 
 training_config = {
-    'n_epochs': 250,
+    'n_epochs': 1000,
     'save_network_every_n_epochs': 100,
     'save_losses_every_n_batches': 100,
     'save_test_losses_every_n_batches': 100,
@@ -1030,24 +1030,32 @@ if __name__ == "__main__":
                         electrode_regressor.fit(train_features_electrode, train_labels)
                         train_pred_electrode = electrode_regressor.predict_proba(train_features_electrode)[:, 1]
                         test_pred_electrode = electrode_regressor.predict_proba(test_features_electrode)[:, 1]
+                        train_pred_electrode_class = electrode_regressor.predict(train_features_electrode)
+                        test_pred_electrode_class = electrode_regressor.predict(test_features_electrode)
                         train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
                         test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
                         train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
                         test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
                         train_roc_electrode = sklearn.metrics.roc_auc_score(train_labels, train_pred_electrode)
                         test_roc_electrode = sklearn.metrics.roc_auc_score(test_labels, test_pred_electrode)
+                        train_acc_electrode = sklearn.metrics.accuracy_score(train_labels, train_pred_electrode_class)
+                        test_acc_electrode = sklearn.metrics.accuracy_score(test_labels, test_pred_electrode_class)
 
                         # Fit logistic regression for time features
                         time_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
                         time_regressor.fit(train_features_time, train_labels)
                         train_pred_time = time_regressor.predict_proba(train_features_time)[:, 1]
                         test_pred_time = time_regressor.predict_proba(test_features_time)[:, 1]
+                        train_pred_time_class = time_regressor.predict(train_features_time)
+                        test_pred_time_class = time_regressor.predict(test_features_time)
                         train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
                         test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
                         train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
                         test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
                         train_roc_time = sklearn.metrics.roc_auc_score(train_labels, train_pred_time)
                         test_roc_time = sklearn.metrics.roc_auc_score(test_labels, test_pred_time)
+                        train_acc_time = sklearn.metrics.accuracy_score(train_labels, train_pred_time_class)
+                        test_acc_time = sklearn.metrics.accuracy_score(test_labels, test_pred_time_class)
                     else:
                         # Fit linear regression for electrode features
                         electrode_regressor = sklearn.linear_model.LinearRegression()
@@ -1076,8 +1084,8 @@ if __name__ == "__main__":
                         print(f"Electrode -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
                             f"Time -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
                     else:
-                        print(f"Electrode -- Train AUC: {train_roc_electrode:.4f} (R2: {train_r_squared_electrode:.4f}, R: {train_r_electrode:.4f}) -- Test AUC: {test_roc_electrode:.4f} (R2: {test_r_squared_electrode:.4f}, R: {test_r_electrode:.4f}) -- "
-                              f"Time -- Train AUC: {train_roc_time:.4f} (R2: {train_r_squared_time:.4f}, R: {train_r_time:.4f}) -- Test AUC: {test_roc_time:.4f} (R2: {test_r_squared_time:.4f}, R: {test_r_time:.4f})")
+                        print(f"Electrode -- Train AUC: {train_roc_electrode:.4f} (R2: {train_r_squared_electrode:.4f}, R: {train_r_electrode:.4f}, Acc: {train_acc_electrode:.4f}) -- Test AUC: {test_roc_electrode:.4f} (R2: {test_r_squared_electrode:.4f}, R: {test_r_electrode:.4f}, Acc: {test_acc_electrode:.4f}) -- "
+                              f"Time -- Train AUC: {train_roc_time:.4f} (R2: {train_r_squared_time:.4f}, R: {train_r_time:.4f}, Acc: {train_acc_time:.4f}) -- Test AUC: {test_roc_time:.4f} (R2: {test_r_squared_time:.4f}, R: {test_r_time:.4f}, Acc: {test_acc_time:.4f})")
 
 
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s -- Temp param: {temp_clip_param.item():.4f}")
@@ -1105,6 +1113,10 @@ if __name__ == "__main__":
                         log_dict['eval/test_roc_electrode'] = test_roc_electrode
                         log_dict['eval/train_roc_time'] = train_roc_time
                         log_dict['eval/test_roc_time'] = test_roc_time
+                        log_dict['eval/train_acc_electrode'] = train_acc_electrode
+                        log_dict['eval/test_acc_electrode'] = test_acc_electrode
+                        log_dict['eval/train_acc_time'] = train_acc_time
+                        log_dict['eval/test_acc_time'] = test_acc_time
                 wandb.log(log_dict, step=overall_batch_i+1, commit=(overall_batch_i+1) % training_config['wandb_commit_every_n_batches'] == 0)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
