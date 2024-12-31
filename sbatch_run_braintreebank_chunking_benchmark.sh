@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=bfm_data_prep          # Name of the job
 #SBATCH -n 1                # node count
-#SBATCH --mem-per-cpu=16G    # memory per cpu-core
+#SBATCH --mem-per-cpu=64G    # memory per cpu-core
 #SBATCH -t 8:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=1-10       # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
