@@ -663,7 +663,7 @@ class BrainTreebankDataLoader:
         return batch, electrode_emb, (subject_id, trial_id)
 
 class BrainTreebankSubjectTrialBenchmarkDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
@@ -671,26 +671,46 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         self.n_time_bins = transformer_config['max_n_time_bins']
         self.randomize_electrode_order = randomize_electrode_order
         self.spectrogram = spectrogram
+        self.percentiles = percentiles
+        self.binarize = binarize
 
         all_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
         self.words_df = pd.read_csv(all_path)
+        self.n_chunks = len(self.words_df) // 100
+
+        self.cache_in_memory = cache_in_memory
+        if self.cache_in_memory:
+            self.cache_input = {}
+            self.cache_labels = {}
+            for chunk_id in range(self.n_chunks): # preload all chunks into memory
+                self.get_chunk_input(chunk_id)
+                self.get_chunk_labels(chunk_id)
+
 
     def get_chunk_input(self, chunk_id, permutation=None):
+        if self.cache_in_memory and chunk_id in self.cache_input:
+            return self.cache_input[chunk_id]
         chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         if permutation is not None:
             chunk_data = chunk_data[:, permutation, :, :]
+        if self.cache_in_memory:
+            self.cache_input[chunk_id] = chunk_data.unsqueeze(1)
         return chunk_data.unsqueeze(1) 
     
-    def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True, binarize=True):
+    def get_chunk_labels(self, chunk_id, label_type='rms'):
+        if self.cache_in_memory and chunk_id in self.cache_labels:
+            return self.cache_labels[chunk_id]
         chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
         chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
-        if percentiles: 
+        if self.percentiles: 
             overall_labels = self.words_df[label_type].to_numpy()
             chunk_labels = np.array([np.mean(overall_labels < x) for x in chunk_labels])
-        if binarize:
+        if self.binarize:
             chunk_labels = np.where(chunk_labels > 0.75, 1, np.where(chunk_labels < 0.25, 0, -1))
             # -1 is the no-label class
+        if self.cache_in_memory:
+            self.cache_labels[chunk_id] = chunk_labels
         return chunk_labels
 
 # if __name__ == "__main__":
@@ -777,6 +797,12 @@ if __name__ == "__main__":
             },
             settings=wandb.Settings(init_timeout=120)
         )
+
+    eval_train_chunks = np.arange(48)
+    eval_test_chunks = np.arange(48, 96)
+    eval_subject_id = 3
+    eval_trial_id = 0
+    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=transformer_config['spectrogram'], cache_in_memory=True, binarize=training_config['binarize_eval'])
 
     avg_distance_store = []
     test_loss_store = []
@@ -910,19 +936,14 @@ if __name__ == "__main__":
             test_r_squared_time = None
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
-                    train_chunks = np.arange(48)
-                    test_chunks = np.arange(48, 96)
-                    eval_subject_id = 3
-                    eval_trial_id = 0
-                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=transformer_config['spectrogram'])
                     electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                     # Collect features and labels for training chunks
                     train_features_electrode = []
                     train_features_time = []
                     train_labels = []
-                    for train_chunk in train_chunks:
+                    for train_chunk in eval_train_chunks:
                         eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk, binarize=training_config['binarize_eval']))
+                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
                         n_electrodes = len(electrode_emb)
                         permutation = torch.randperm(n_electrodes)
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
@@ -942,9 +963,9 @@ if __name__ == "__main__":
                     test_features_electrode = []
                     test_features_time = []
                     test_labels = []
-                    for test_chunk in test_chunks:
+                    for test_chunk in eval_test_chunks:
                         eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk, binarize=training_config['binarize_eval']))
+                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
                         n_electrodes = len(electrode_emb)
                         permutation = torch.randperm(n_electrodes)
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
@@ -979,7 +1000,7 @@ if __name__ == "__main__":
 
                     if training_config['binarize_eval']:
                         # Fit logistic regression for electrode features
-                        electrode_regressor = sklearn.linear_model.LogisticRegression()
+                        electrode_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
                         electrode_regressor.fit(train_features_electrode, train_labels)
                         train_pred_electrode = electrode_regressor.predict_proba(train_features_electrode)[:, 1]
                         test_pred_electrode = electrode_regressor.predict_proba(test_features_electrode)[:, 1]
@@ -991,7 +1012,7 @@ if __name__ == "__main__":
                         test_roc_electrode = sklearn.metrics.roc_auc_score(test_labels, test_pred_electrode)
 
                         # Fit logistic regression for time features
-                        time_regressor = sklearn.linear_model.LogisticRegression()
+                        time_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
                         time_regressor.fit(train_features_time, train_labels)
                         train_pred_time = time_regressor.predict_proba(train_features_time)[:, 1]
                         test_pred_time = time_regressor.predict_proba(test_features_time)[:, 1]
@@ -1022,6 +1043,9 @@ if __name__ == "__main__":
                         train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
                         test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
+                    # calculate mean norm of features
+                    train_features_electrode_norm = np.linalg.norm(train_features_electrode, axis=1).mean()
+                    print(f"Train electrode features norm: {train_features_electrode_norm:.4f}")
                     if not training_config['binarize_eval']:
                         print(f"Electrode -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
                             f"Time -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
