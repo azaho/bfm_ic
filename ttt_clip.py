@@ -777,6 +777,7 @@ if __name__ == "__main__":
                         train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
                         test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
+                    print("Train feature norm: ", np.mean(np.sum(train_features_electrode**2, axis=-1)**0.5))
                     if not training_config['binarize_eval']:
                         print(f"Electrode -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
                             f"Time -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
