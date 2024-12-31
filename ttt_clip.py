@@ -67,7 +67,7 @@ if __name__ == '__main__':
         print(f"Waiting {args.wait_n_intervals} intervals")
         for i in range(args.wait_n_intervals):
             print(f"Waiting {i+1} of {args.wait_n_intervals}")
-            time.sleep(1)
+            time.sleep(10)
 
 train_subject_trials = []
 for subject in args.subjects:
@@ -804,7 +804,7 @@ if __name__ == "__main__":
                 "training_config": training_config,
                 "transformer_config": transformer_config,
             },
-            settings=wandb.Settings(init_timeout=120)
+            settings=wandb.Settings(init_timeout=480)
         )
 
     eval_subject_id = 3
