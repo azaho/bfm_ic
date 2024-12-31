@@ -206,7 +206,7 @@ class Muon(torch.optim.Optimizer):
                 g = zeropower_backend(g, steps=group['backend_steps'])
                 p.data.add_(g, alpha=-lr)
 
-class BrainTreebankSubjectTrialDataLoader:
+class BrainTreebankSubjectTrialDataLoader_old:
     def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0, spectrogram=False, cache_in_memory=True):
         self.subject_id = subject_id
         self.trial_id = trial_id
@@ -316,6 +316,251 @@ class BrainTreebankSubjectTrialDataLoader:
         return (len(self.train_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
     def test_length(self, batch_size):
         return (len(self.test_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
+    
+import json
+import numpy as np
+import torch
+
+class BrainTreebankSubjectTrialDataLoader:
+    def __init__(
+        self,
+        subject_id,
+        trial_id,
+        trim_electrodes_to=None,
+        device='cuda',
+        randomize_chunk_order=True,
+        p_test_chunks=0.0,
+        spectrogram=False,
+        cache_in_memory=True
+    ):
+        self.subject_id = subject_id
+        self.trial_id = trial_id
+        self.trim_electrodes_to = trim_electrodes_to
+        self.device = device
+        self.spectrogram = spectrogram
+        self.cache_in_memory = cache_in_memory
+        self.randomize_chunk_order = randomize_chunk_order
+        
+        # Load metadata
+        metadata_path = (
+            f"braintreebank_data_chunks{'_raw' if not spectrogram else ''}/"
+            f"subject{self.subject_id}_trial{self.trial_id}.json"
+        )
+        with open(metadata_path, 'r') as f:
+            self.metadata = json.load(f)
+
+        # Unpack metadata
+        self.n_electrodes = self.metadata['n_electrodes']
+        self.n_time_bins = self.metadata['n_time_bins']
+        self.total_samples = self.metadata['total_samples']
+        self.n_chunks = self.metadata['n_chunks']
+        self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
+        self.n_freq_features = self.metadata.get('n_freq_features', transformer_config['n_freq_features'])
+
+        # Train/test split
+        self.test_chunk_ids = np.random.choice(
+            self.n_chunks,
+            size=int(self.n_chunks * p_test_chunks),
+            replace=False
+        )
+        self.train_chunk_ids = np.setdiff1d(
+            np.arange(self.n_chunks),
+            self.test_chunk_ids
+        )
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.train_chunk_ids)
+            np.random.shuffle(self.test_chunk_ids)
+        
+        # Iteration indices
+        self.current_train_chunk = 0
+        self.current_test_chunk = 0
+        
+        # Temp storage for chunk-based iteration
+        self.train_chunks = []
+        self.test_chunks = []
+
+        # Preload if requested
+        if self.cache_in_memory:
+            self._preload_all_chunks()
+
+    def _preload_all_chunks(self):
+        """
+        Preloads and reshapes all chunks directly onto the GPU 
+        (and into the correct dtype).
+        """
+        self.chunk_data_cache = {}
+        for chunk_id in range(self.n_chunks):
+            chunk_path = (
+                f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/"
+                f"subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+            )
+            # Load the chunk from disk
+            chunk_data = np.load(chunk_path)
+            chunk_data = torch.from_numpy(chunk_data)
+            
+            # Reshape into (1, n_electrodes, #windows, max_n_time_bins, n_freq_features)
+            chunk_data = chunk_data.unsqueeze(0).reshape(
+                1,
+                self.n_electrodes,
+                -1,
+                transformer_config['max_n_time_bins'],
+                transformer_config['n_freq_features']
+            )
+            
+            # Move to GPU and correct dtype
+            chunk_data = chunk_data.to(
+                device=self.device,
+                dtype=transformer_config['dtype']
+            )
+            
+            # Cache in dictionary
+            self.chunk_data_cache[chunk_id] = chunk_data
+
+    def _load_chunk(self, chunk_id):
+        """
+        If cache_in_memory is True, return the already-GPU-cached chunk. 
+        Otherwise, load on-demand.
+        """
+        if self.cache_in_memory:
+            return self.chunk_data_cache[chunk_id]
+        else:
+            chunk_path = (
+                f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/"
+                f"subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+            )
+            chunk_data = torch.from_numpy(np.load(chunk_path))
+            chunk_data = chunk_data.unsqueeze(0).reshape(
+                1,
+                self.n_electrodes,
+                -1,
+                transformer_config['max_n_time_bins'],
+                transformer_config['n_freq_features']
+            )
+            # If not cached, we still move it to GPU here
+            return chunk_data.to(
+                device=self.device,
+                dtype=transformer_config['dtype']
+            )
+
+    def _get_next_chunk_id(self):
+        """
+        Returns the next chunk id for training, and advances the pointer.
+        """
+        chunk_id = self.train_chunk_ids[self.current_train_chunk]
+        self.current_train_chunk += 1
+        return chunk_id
+    
+    def _have_next_chunk(self):
+        """
+        Check if there is still another chunk for training.
+        """
+        return self.current_train_chunk < len(self.train_chunk_ids)
+
+    def _get_next_test_chunk_id(self):
+        """
+        Returns the next chunk id for testing, and advances the pointer.
+        """
+        chunk_id = self.test_chunk_ids[self.current_test_chunk]
+        self.current_test_chunk += 1
+        return chunk_id
+
+    def _have_next_test_chunk(self):
+        """
+        Check if there is still another chunk for testing.
+        """
+        return self.current_test_chunk < len(self.test_chunk_ids)
+
+    def reset(self):
+        """
+        Reset the training chunk iteration (for new epoch).
+        """
+        self.train_chunks = []
+        self.current_train_chunk = 0
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.train_chunk_ids)
+
+    def reset_test(self):
+        """
+        Reset the testing chunk iteration.
+        """
+        self.test_chunks = []
+        self.current_test_chunk = 0
+        if self.randomize_chunk_order:
+            np.random.shuffle(self.test_chunk_ids)
+
+    def get_next_batch(self, batch_size, permutation=None):
+        """
+        Returns a batch (batch_size windows), taken from the chunk queue.
+        If the queue doesn't have enough windows, load more chunks until we do.
+        """
+        # Drop the oldest windows if we have leftover
+        self.train_chunks = self.train_chunks[batch_size:]
+        
+        # While we need more windows and have more chunks, load them
+        while len(self.train_chunks) < batch_size and self._have_next_chunk():
+            new_chunk_id = self._get_next_chunk_id()
+            new_chunk = self._load_chunk(new_chunk_id)  # shape: (1, n_electrodes, #windows, max_time, n_freq)
+            
+            # Split along the #windows dimension and append each window separately
+            # shape: (1, n_electrodes, #windows, max_n_time_bins, n_freq_features)
+            num_windows = new_chunk.shape[2]
+            for i in range(num_windows):
+                self.train_chunks.append(new_chunk[:, :, i, :, :])  # shape: (1, n_electrodes, max_time, n_freq)
+        
+        # Combine the first 'batch_size' windows into one tensor
+        data = torch.cat(self.train_chunks[:batch_size], dim=0).unsqueeze(1)
+        # data shape is (batch_size, 1, n_electrodes, max_time, n_freq_features)
+        
+        # Electrode trim (optional)
+        if self.trim_electrodes_to:
+            data = data[:, :, :self.trim_electrodes_to, :, :]
+        
+        # Optional electrode permutation
+        if permutation is not None:
+            data = data[:, :, permutation, :, :]
+        
+        # Since everything is already on GPU, we can just return 'data' 
+        # (it’s already the correct device/dtype)
+        return data
+
+    def get_next_test_batch(self, batch_size, permutation=None):
+        """
+        Returns a test batch, analogous to get_next_batch.
+        """
+        self.test_chunks = self.test_chunks[batch_size:]
+        
+        while len(self.test_chunks) < batch_size and self._have_next_test_chunk():
+            new_chunk_id = self._get_next_test_chunk_id()
+            new_chunk = self._load_chunk(new_chunk_id)
+            
+            num_windows = new_chunk.shape[2]
+            for i in range(num_windows):
+                self.test_chunks.append(new_chunk[:, :, i, :, :])
+        
+        data = torch.cat(self.test_chunks[:batch_size], dim=0).unsqueeze(1)
+        
+        if self.trim_electrodes_to:
+            data = data[:, :, :self.trim_electrodes_to, :, :]
+        
+        if permutation is not None:
+            data = data[:, :, permutation, :, :]
+        
+        return data
+
+    def length(self, batch_size):
+        """
+        How many training batches are left (rough approximation).
+        """
+        total_windows_per_chunk = self.n_time_bins // transformer_config['max_n_time_bins']
+        return (len(self.train_chunk_ids) - 1) * total_windows_per_chunk // batch_size
+
+    def test_length(self, batch_size):
+        """
+        How many test batches are left (rough approximation).
+        """
+        total_windows_per_chunk = self.n_time_bins // transformer_config['max_n_time_bins']
+        return (len(self.test_chunk_ids) - 1) * total_windows_per_chunk // batch_size
+
     
 class BrainTreebankDataLoader:
     def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True, p_test_chunks=0.0, randomize_electrode_order=True, spectrogram=False):
@@ -777,7 +1022,6 @@ if __name__ == "__main__":
                         train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
                         test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
-                    print("Train feature norm: ", np.mean(np.sum(train_features_electrode**2, axis=-1)**0.5))
                     if not training_config['binarize_eval']:
                         print(f"Electrode -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
                             f"Time -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
