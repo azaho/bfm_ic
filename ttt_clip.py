@@ -23,7 +23,7 @@ args.dm = 192
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 12
-args.dr = 0.5
+args.dr = 0.4
 args.rs = "" 
 args.lrwm = 0
 args.wait_n_intervals = 0
@@ -31,8 +31,8 @@ args.weight_decay = 0.000
 args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
-args.wandb_project = "bfm_clip_deepfinetuningtests"
-args.subjects = "3"
+args.wandb_project = "bfm_clip_bofa"
+args.subjects = "23"
 args.spectrogram = 1
 args.binarize_eval = 1
 args.temp_clip_param = 1
@@ -77,10 +77,10 @@ for subject in args.subjects:
     else: subject = int(subject)
     train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject)
 
-train_subject_trials = [(3, 1), (3, 2)] #XXX
+train_subject_trials = [(3, 1), (3, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)] #XXX
 
 training_config = {
-    'n_epochs': 1000,
+    'n_epochs': 250,
     'save_network_every_n_epochs': 100,
     'save_losses_every_n_batches': 100,
     'save_test_losses_every_n_batches': 100,
@@ -108,7 +108,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "tOOD", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
+    'model_name': "tOOD2", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon) #XXX
     'max_n_electrodes': 158,#158,
     'n_freq_features': 37 if args.spectrogram else 256,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
