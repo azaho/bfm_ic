@@ -103,7 +103,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "t", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
+    'model_name': "tI", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
     'max_n_electrodes': 158,#158,
     'n_freq_features': 37 if args.spectrogram else 256,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -663,7 +663,7 @@ class BrainTreebankDataLoader:
         return batch, electrode_emb, (subject_id, trial_id)
 
 class BrainTreebankSubjectTrialBenchmarkDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True, p_test_chunks=0.5, test_chunks_interleaved=False):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True, p_test_chunks=0.5, test_chunks_interleaved=True):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
