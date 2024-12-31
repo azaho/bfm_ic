@@ -815,7 +815,7 @@ if __name__ == "__main__":
 
     training_on_subjects = [subject_id for subject_id, trial_id in training_config['train_subject_trials']]
     eval_subject_trials = [(subject_id, trial_id) for subject_id, trial_id in all_eval_subject_trials if subject_id in training_on_subjects]
-    eval_subject_trials = [(3, 0)] # XXX
+    #eval_subject_trials = [(3, 0)] # XXX
     eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
                                                                      spectrogram=transformer_config['spectrogram'], 
                                                                      cache_in_memory=True, 
