@@ -77,8 +77,8 @@ for subject in args.subjects:
 
 training_config = {
     'n_epochs': 1000,
-    'save_network_every_n_epochs': 20,
-    'save_losses_every_n_batches': 20,
+    'save_network_every_n_epochs': 100,
+    'save_losses_every_n_batches': 100,
     'save_test_losses_every_n_batches': 100,
     'save_eval_every_n_batches': 100,
     'p_test_chunks': 0.1,
