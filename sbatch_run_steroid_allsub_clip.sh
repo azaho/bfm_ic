@@ -63,7 +63,7 @@ for gpu_id in {0..7}; do
     --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} \
     --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} --pushaway ${pushaway_array[pushaway_index]} \
     --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --max_gradient_norm $max_gradient_norm \
-    --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip4 --nl ${nl_array[nl_index]} &
+    --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip_deepfinetuningtests --nl ${nl_array[nl_index]} &
 done
 
 wait # Wait for all parallel processes to complete
