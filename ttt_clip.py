@@ -84,7 +84,7 @@ training_config = {
     'save_losses_every_n_batches': 100,
     'save_test_losses_every_n_batches': 100,
     'save_eval_every_n_batches': 100,
-    'p_test_chunks': 0.1,
+    'p_test_chunks': 0.15,
  
     'batch_size': args.bs,
     'train_subject_trials': train_subject_trials, #[(2, 4)], #[(2, 4), (1, 1), (3, 1)],
@@ -950,10 +950,22 @@ if __name__ == "__main__":
                 overall_test_loss = np.nanmean(subject_trial_test_loss_store).item()
                 print(f"Test loss: {overall_test_loss}")
 
-            train_r_squared_electrode = None
-            train_r_squared_time = None
-            test_r_squared_electrode = None
-            test_r_squared_time = None
+            train_r_squared_electrode = 0
+            train_r_squared_time = 0
+            test_r_squared_electrode = 0
+            test_r_squared_time = 0
+            train_acc_electrode = 0
+            train_acc_time = 0
+            test_acc_electrode = 0
+            test_acc_time = 0
+            train_roc_electrode = 0
+            train_roc_time = 0
+            test_roc_electrode = 0
+            test_roc_time = 0
+            train_r_electrode = 0
+            train_r_time = 0
+            test_r_electrode = 0
+            test_r_time = 0
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
                     
@@ -1006,76 +1018,95 @@ if __name__ == "__main__":
                             test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
                             test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
-                    # Convert lists to arrays
-                    train_features_electrode = np.concatenate(train_features_electrode)
-                    train_features_time = np.concatenate(train_features_time)
-                    train_labels = np.concatenate(train_labels)
-                    test_features_electrode = np.concatenate(test_features_electrode)
-                    test_features_time = np.concatenate(test_features_time)
-                    test_labels = np.concatenate(test_labels)
-                    if training_config['binarize_eval']:
-                        # Filter out labels that are -1 (no-label class)
-                        train_mask = train_labels >= 0
-                        test_mask = test_labels >= 0
-                        train_features_electrode = train_features_electrode[train_mask]
-                        train_features_time = train_features_time[train_mask] 
-                        train_labels = train_labels[train_mask]
-                        test_features_electrode = test_features_electrode[test_mask]
-                        test_features_time = test_features_time[test_mask]
-                        test_labels = test_labels[test_mask]
+                        # Convert lists to arrays
+                        train_features_electrode = np.concatenate(train_features_electrode)
+                        train_features_time = np.concatenate(train_features_time)
+                        train_labels = np.concatenate(train_labels)
+                        test_features_electrode = np.concatenate(test_features_electrode)
+                        test_features_time = np.concatenate(test_features_time)
+                        test_labels = np.concatenate(test_labels)
+                        if training_config['binarize_eval']:
+                            # Filter out labels that are -1 (no-label class)
+                            train_mask = train_labels >= 0
+                            test_mask = test_labels >= 0
+                            train_features_electrode = train_features_electrode[train_mask]
+                            train_features_time = train_features_time[train_mask] 
+                            train_labels = train_labels[train_mask]
+                            test_features_electrode = test_features_electrode[test_mask]
+                            test_features_time = test_features_time[test_mask]
+                            test_labels = test_labels[test_mask]
 
-                    if training_config['binarize_eval']:
-                        # Fit logistic regression for electrode features
-                        electrode_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
-                        electrode_regressor.fit(train_features_electrode, train_labels)
-                        train_pred_electrode = electrode_regressor.predict_proba(train_features_electrode)[:, 1]
-                        test_pred_electrode = electrode_regressor.predict_proba(test_features_electrode)[:, 1]
-                        train_pred_electrode_class = electrode_regressor.predict(train_features_electrode)
-                        test_pred_electrode_class = electrode_regressor.predict(test_features_electrode)
-                        train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
-                        test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
-                        train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
-                        test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
-                        train_roc_electrode = sklearn.metrics.roc_auc_score(train_labels, train_pred_electrode)
-                        test_roc_electrode = sklearn.metrics.roc_auc_score(test_labels, test_pred_electrode)
-                        train_acc_electrode = sklearn.metrics.accuracy_score(train_labels, train_pred_electrode_class)
-                        test_acc_electrode = sklearn.metrics.accuracy_score(test_labels, test_pred_electrode_class)
+                        if training_config['binarize_eval']:
+                            # Fit logistic regression for electrode features
+                            electrode_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
+                            electrode_regressor.fit(train_features_electrode, train_labels)
+                            train_pred_electrode = electrode_regressor.predict_proba(train_features_electrode)[:, 1]
+                            test_pred_electrode = electrode_regressor.predict_proba(test_features_electrode)[:, 1]
+                            train_pred_electrode_class = electrode_regressor.predict(train_features_electrode)
+                            test_pred_electrode_class = electrode_regressor.predict(test_features_electrode)
+                            train_r_squared_electrode += sklearn.metrics.r2_score(train_labels, train_pred_electrode)
+                            test_r_squared_electrode += sklearn.metrics.r2_score(test_labels, test_pred_electrode)
+                            train_r_electrode += np.corrcoef(train_labels, train_pred_electrode)[0, 1]
+                            test_r_electrode += np.corrcoef(test_labels, test_pred_electrode)[0, 1]
+                            train_roc_electrode += sklearn.metrics.roc_auc_score(train_labels, train_pred_electrode)
+                            test_roc_electrode += sklearn.metrics.roc_auc_score(test_labels, test_pred_electrode)
+                            train_acc_electrode += sklearn.metrics.accuracy_score(train_labels, train_pred_electrode_class)
+                            test_acc_electrode += sklearn.metrics.accuracy_score(test_labels, test_pred_electrode_class)
 
-                        # Fit logistic regression for time features
-                        time_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
-                        time_regressor.fit(train_features_time, train_labels)
-                        train_pred_time = time_regressor.predict_proba(train_features_time)[:, 1]
-                        test_pred_time = time_regressor.predict_proba(test_features_time)[:, 1]
-                        train_pred_time_class = time_regressor.predict(train_features_time)
-                        test_pred_time_class = time_regressor.predict(test_features_time)
-                        train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
-                        test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
-                        train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
-                        test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
-                        train_roc_time = sklearn.metrics.roc_auc_score(train_labels, train_pred_time)
-                        test_roc_time = sklearn.metrics.roc_auc_score(test_labels, test_pred_time)
-                        train_acc_time = sklearn.metrics.accuracy_score(train_labels, train_pred_time_class)
-                        test_acc_time = sklearn.metrics.accuracy_score(test_labels, test_pred_time_class)
-                    else:
-                        # Fit linear regression for electrode features
-                        electrode_regressor = sklearn.linear_model.LinearRegression()
-                        electrode_regressor.fit(train_features_electrode, train_labels)
-                        train_pred_electrode = electrode_regressor.predict(train_features_electrode)
-                        test_pred_electrode = electrode_regressor.predict(test_features_electrode)
-                        train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
-                        test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
-                        train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
-                        test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
+                            # Fit logistic regression for time features
+                            time_regressor = sklearn.linear_model.LogisticRegression(max_iter=10000)
+                            time_regressor.fit(train_features_time, train_labels)
+                            train_pred_time = time_regressor.predict_proba(train_features_time)[:, 1]
+                            test_pred_time = time_regressor.predict_proba(test_features_time)[:, 1]
+                            train_pred_time_class = time_regressor.predict(train_features_time)
+                            test_pred_time_class = time_regressor.predict(test_features_time)
+                            train_r_squared_time += sklearn.metrics.r2_score(train_labels, train_pred_time)
+                            test_r_squared_time += sklearn.metrics.r2_score(test_labels, test_pred_time)
+                            train_r_time += np.corrcoef(train_labels, train_pred_time)[0, 1]
+                            test_r_time += np.corrcoef(test_labels, test_pred_time)[0, 1]
+                            train_roc_time += sklearn.metrics.roc_auc_score(train_labels, train_pred_time)
+                            test_roc_time += sklearn.metrics.roc_auc_score(test_labels, test_pred_time)
+                            train_acc_time += sklearn.metrics.accuracy_score(train_labels, train_pred_time_class)
+                            test_acc_time += sklearn.metrics.accuracy_score(test_labels, test_pred_time_class)
+                        else:
+                            # Fit linear regression for electrode features
+                            electrode_regressor = sklearn.linear_model.LinearRegression()
+                            electrode_regressor.fit(train_features_electrode, train_labels)
+                            train_pred_electrode = electrode_regressor.predict(train_features_electrode)
+                            test_pred_electrode = electrode_regressor.predict(test_features_electrode)
+                            train_r_squared_electrode += sklearn.metrics.r2_score(train_labels, train_pred_electrode)
+                            test_r_squared_electrode += sklearn.metrics.r2_score(test_labels, test_pred_electrode)
+                            train_r_electrode += np.corrcoef(train_labels, train_pred_electrode)[0, 1]
+                            test_r_electrode += np.corrcoef(test_labels, test_pred_electrode)[0, 1]
 
-                        # Fit linear regression for time features
-                        time_regressor = sklearn.linear_model.LinearRegression()
-                        time_regressor.fit(train_features_time, train_labels)
-                        train_pred_time = time_regressor.predict(train_features_time)
-                        test_pred_time = time_regressor.predict(test_features_time)
-                        train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
-                        test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
-                        train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
-                        test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
+                            # Fit linear regression for time features
+                            time_regressor = sklearn.linear_model.LinearRegression()
+                            time_regressor.fit(train_features_time, train_labels)
+                            train_pred_time = time_regressor.predict(train_features_time)
+                            test_pred_time = time_regressor.predict(test_features_time)
+                            train_r_squared_time += sklearn.metrics.r2_score(train_labels, train_pred_time)
+                            test_r_squared_time += sklearn.metrics.r2_score(test_labels, test_pred_time)
+                            train_r_time += np.corrcoef(train_labels, train_pred_time)[0, 1]
+                            test_r_time += np.corrcoef(test_labels, test_pred_time)[0, 1]
+
+                    # Divide by number of dataloaders to get mean metrics
+                    n_dataloaders = len(eval_dataloaders)
+                    train_r_squared_electrode /= n_dataloaders
+                    train_r_squared_time /= n_dataloaders
+                    test_r_squared_electrode /= n_dataloaders
+                    test_r_squared_time /= n_dataloaders
+                    train_acc_electrode /= n_dataloaders
+                    train_acc_time /= n_dataloaders
+                    test_acc_electrode /= n_dataloaders
+                    test_acc_time /= n_dataloaders
+                    train_roc_electrode /= n_dataloaders
+                    train_roc_time /= n_dataloaders
+                    test_roc_electrode /= n_dataloaders
+                    test_roc_time /= n_dataloaders
+                    train_r_electrode /= n_dataloaders
+                    train_r_time /= n_dataloaders
+                    test_r_electrode /= n_dataloaders
+                    test_r_time /= n_dataloaders
 
                     # calculate mean norm of features
                     train_features_electrode_norm = np.linalg.norm(train_features_electrode, axis=1).mean()
@@ -1094,6 +1125,8 @@ if __name__ == "__main__":
                     "loss": loss.item(),
                     "gradient_norm": gradient_norm.item(),
                     "avg_distance": avg_distance,
+                    "gpu_mem_used": gpu_mem_used,
+                    "temp_clip_param": temp_clip_param.item(),
                 }
                 if overall_test_loss is not None:
                     log_dict['test_loss'] = overall_test_loss
