@@ -33,7 +33,7 @@ args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = "bfm_clip_deepfinetuningtests"
 args.subjects = "3"
-args.spectrogram = False
+args.spectrogram = True
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -405,13 +405,15 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
             chunk_data = chunk_data[:, permutation, :, :]
         return chunk_data.unsqueeze(1) 
     
-    def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True):
+    def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True, binarize=True):
         chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
         chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
         if percentiles: 
             overall_labels = self.words_df[label_type].to_numpy()
-            if percentiles:
-                chunk_labels = np.array([np.mean(overall_labels < x) for x in chunk_labels])
+            chunk_labels = np.array([np.mean(overall_labels < x) for x in chunk_labels])
+        if binarize:
+            chunk_labels = np.where(chunk_labels > 0.75, 1, np.where(chunk_labels < 0.25, 0, -1))
+            # -1 is the no-label class
         return chunk_labels
 
 # if __name__ == "__main__":
