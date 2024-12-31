@@ -5,7 +5,7 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=1024G
 #SBATCH -t 10:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-2      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-14      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 
 source .venv/bin/activate
@@ -17,7 +17,7 @@ optimizer_array=('Muon')
 electrode_init_array=('coordinates_nograd' 'zeros' 'normal')
 dropout_array=(0.0 0.2 0.5)
 batch_size_array=(100 400)
-subjects_array=('3' '1234567890')
+subjects_array=('3' '23' '24' '234' '123456')
 lr_array=(0.001 0.0015)
 nl_array=(10 14)
 d_model_array=(192 384)
@@ -39,7 +39,7 @@ subjects_index=0
 
 spectrogram=1
 binarize_eval=1
-temp_clip_param=0
+temp_clip_param=1
 test_chunks_interleaved=0
 
 # Calculate base index for this job
@@ -53,11 +53,12 @@ for gpu_id in {0..7}; do
     # Calculate indices for each hyperparameter
     lr_index=$((index % 2))
     electrode_init_index=$((index / 2 % 2))
-    temp_clip_param=$((index / 4 % 2))
+    multisubj_eval=$((index / 4 % 2))
     dropout_index=$((index / 8 % 3))
+    subjects_index=$((index / 24 % 5))
 
     srun --exclusive -n1 --mem=128G --cpu-bind=cores python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
-    --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} --test_chunks_interleaved ${test_chunks_interleaved} \
+    --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} --test_chunks_interleaved ${test_chunks_interleaved} --multisubj_eval ${multisubj_eval} \
     --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} \
     --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --max_gradient_norm $max_gradient_norm \
     --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip_bofa --nl ${nl_array[nl_index]} &

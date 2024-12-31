@@ -12,7 +12,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
-#all_subject_trials = [(2, 4)] #XXX
 
 args = argparse.Namespace()
 args.lrmax = 0.001
@@ -37,6 +36,7 @@ args.spectrogram = 1
 args.binarize_eval = 1
 args.temp_clip_param = 1
 args.test_chunks_interleaved = 0
+args.multisubj_eval = 0
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -61,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--binarize_eval', type=int, default=args.binarize_eval, help='Binarize evaluation')
     parser.add_argument('--temp_clip_param', type=int, default=args.temp_clip_param, help='Use temperature clip parameter')
     parser.add_argument('--test_chunks_interleaved', type=int, default=args.test_chunks_interleaved, help='Test chunks interleaved')
+    parser.add_argument('--multisubj_eval', type=int, default=args.multisubj_eval, help='Multisubject evaluation')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -102,6 +103,7 @@ training_config = {
     'binarize_eval': args.binarize_eval==1,
     'temp_clip_param': args.temp_clip_param==1,
     'test_chunks_interleaved': args.test_chunks_interleaved==1,
+    'multisubj_eval': args.multisubj_eval==1,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -146,6 +148,8 @@ def update_dir_name():
         dir_name += f"_tc"
     if training_config['test_chunks_interleaved']:
         dir_name += f"_ti"
+    if training_config['multisubj_eval']:
+        dir_name += f"_me"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"
@@ -815,7 +819,8 @@ if __name__ == "__main__":
 
     training_on_subjects = [subject_id for subject_id, trial_id in training_config['train_subject_trials']]
     eval_subject_trials = [(subject_id, trial_id) for subject_id, trial_id in all_eval_subject_trials if subject_id in training_on_subjects]
-    #eval_subject_trials = [(3, 0)] # XXX
+    if not training_config['multisubj_eval']:
+        eval_subject_trials = [(3, 0)] # XXX
     eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
                                                                      spectrogram=transformer_config['spectrogram'], 
                                                                      cache_in_memory=True, 
