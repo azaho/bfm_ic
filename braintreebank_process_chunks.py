@@ -56,9 +56,9 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
             data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, nperseg), dtype=np.float32)
             for i, electrode_label in enumerate(electrode_labels):
                 if laplacian_rereferenced:
-                    data_chunk[i, :, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(1, -1, nperseg)
+                    data_chunk[i, :, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
                 else:
-                    data_chunk[i, :, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(1, -1, nperseg)
+                    data_chunk[i, :, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
                 if global_per_electrode_normalizing_params:
                     data_chunk[i, :, :] = (data_chunk[i, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
                 else:

@@ -107,9 +107,9 @@ def obtain_aligned_words_df(sub_id, trial_id, verbose=True, save_to_dir="braintr
         words_df.to_csv(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_words_df.csv', index=False)
     return words_df
 
-def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAPLACIAN_REREFERENCED, nperseg=256, noverlap=0, max_chunks=None, start_data_before_onset=BENCHMARK_START_DATA_BEFORE_ONSET, end_data_after_onset=BENCHMARK_END_DATA_AFTER_ONSET,
+def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAPLACIAN_REREFERENCED, nperseg=256, max_chunks=None, start_data_before_onset=BENCHMARK_START_DATA_BEFORE_ONSET, end_data_after_onset=BENCHMARK_END_DATA_AFTER_ONSET,
                           chunk_batch_size=100, verbose=True, global_per_electrode_normalizing_params=True, allow_corrupted=ALLOW_CORRUPTED_ELECTRODES, 
-                          only_laplacian=False, save_to_dir="braintreebank_benchmark_data_chunks", padding_time=BENCHMARK_PADDING_TIME):
+                          only_laplacian=False, save_to_dir="braintreebank_benchmark_data_chunks", padding_time=BENCHMARK_PADDING_TIME, spectrogram=True):
     window_length = (start_data_before_onset + end_data_after_onset) * SAMPLING_RATE
     assert window_length % nperseg == 0, "Window length must be divisible by nperseg"
     assert (not laplacian_rereferenced) or (only_laplacian), "Laplacian rereferenced is only supported when only_laplacian is True"
@@ -124,7 +124,10 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
         if verbose: print("Computing normalizing parameters for electrodes")
         normalizing_params = {}
         for i, electrode_label in enumerate(electrode_labels):
-            mean, std = subject.get_spectrogram_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=False)
+            if spectrogram:
+                mean, std = subject.get_spectrogram_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=True)
+            else:
+                mean, std = subject.get_electrode_data_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=True)
             normalizing_params[electrode_label] = (mean, std)
             #print(f"Normalizing params for {electrode_label}: mean={mean}, std={std}")
         if verbose: print("Normalizing parameters computed")
@@ -134,16 +137,26 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     if verbose: print(f"Processing subject {sub_id} trial {trial_id} ({len(words_df)} words, {n_chunks} chunks)")
     for chunk_i in range(n_chunks):
         chunk_words_df = words_df[chunk_i*chunk_batch_size:(chunk_i+1)*chunk_batch_size]
-        data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37), dtype=np.float32)
+        data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
         for word_i, row in chunk_words_df.iterrows():
             window_start_sample = int(row[est_idx_col] - start_data_before_onset * SAMPLING_RATE)
             window_end_sample = int(row[est_idx_col] + end_data_after_onset * SAMPLING_RATE)
             assert window_start_sample >= 0 and window_end_sample <= total_samples, f"Window extends beyond data boundaries for word {word_i} of chunk {chunk_i} of subject {sub_id} trial {trial_id}"
             for i, electrode_label in enumerate(electrode_labels):
-                f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, 
-                                                    normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=False,
-                                                    normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
-                data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = Sxx.T # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+                if spectrogram:
+                    f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, 
+                                                        normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=True,
+                                                        normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
+                    data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = Sxx.T # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+                else:
+                    if laplacian_rereferenced:
+                        data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, cache=True).reshape(-1, nperseg)
+                    else:
+                        data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, cache=True).reshape(-1, nperseg)
+                    if global_per_electrode_normalizing_params:
+                        data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = (data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
+                    else:
+                        data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = (data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] - np.mean(data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :]).item()) / np.std(data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :]).item()
         chunk_words_df.to_csv(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.csv', index=False)
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.npy', data_chunk)
         if verbose: print(f"Saved chunk {chunk_i} (shape: {data_chunk.shape})")
@@ -152,7 +165,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     # Process gaps between words
     if verbose: print("Processing gaps between words...")
     
-    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37), dtype=np.float32)
+    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
     gap_chunk_count = 0
     gap_chunk_num = 0
 
@@ -167,35 +180,43 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
         next_word_onset = int(next_word[est_idx_col] - padding_time * SAMPLING_RATE)
         gap_samples = next_word_onset - current_word_offset
 
+        window_start_sample = current_word_offset
+        window_end_sample = window_start_sample + window_length
+
         # If gap is large enough for a window
-        if gap_samples >= window_length:
+        while (gap_samples >= window_length) and (window_end_sample <= total_samples):
             # Add to current chunk
-            window_start_sample = current_word_offset
-            window_end_sample = window_start_sample + window_length
-            
-            if window_end_sample <= total_samples:
-                # Get spectrograms for gap
-                for j, electrode_label in enumerate(electrode_labels):
+            for j, electrode_label in enumerate(electrode_labels):
+                if spectrogram:
                     f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, 
-                                                       window_from=window_start_sample,
-                                                       window_to=window_end_sample,
-                                                       normalize_per_freq=True,
-                                                       laplacian_rereferenced=laplacian_rereferenced,
-                                                       cache=False,
-                                                       normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
+                                                        window_from=window_start_sample,
+                                                        window_to=window_end_sample,
+                                                        normalize_per_freq=True,
+                                                        laplacian_rereferenced=laplacian_rereferenced,
+                                                        cache=False,
+                                                        normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
                     gap_data_chunk[gap_chunk_count, j, :, :] = Sxx.T
+                else:
+                    if laplacian_rereferenced:
+                        gap_data_chunk[gap_chunk_count, j, :, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, cache=True).reshape(-1, nperseg)
+                    else:
+                        gap_data_chunk[gap_chunk_count, j, :, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_start_sample, window_to=window_end_sample, cache=True).reshape(-1, nperseg)
+                    if global_per_electrode_normalizing_params:
+                        gap_data_chunk[gap_chunk_count, j, :, :] = (gap_data_chunk[gap_chunk_count, j, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
+                    else:
+                        gap_data_chunk[gap_chunk_count, j, :, :] = (gap_data_chunk[gap_chunk_count, j, :, :] - np.mean(gap_data_chunk[gap_chunk_count, j, :, :]).item()) / np.std(gap_data_chunk[gap_chunk_count, j, :, :]).item()
+    
+            gap_chunk_count += 1
 
-                gap_chunk_count += 1
-
-                # Save chunk if it's full
-                if gap_chunk_count == chunk_batch_size:
-                    if save_to_dir is not None:
-                        np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_gap_chunk{gap_chunk_num}.npy', gap_data_chunk)
-                        if verbose: print(f"Saved gap chunk {gap_chunk_num} (shape: {gap_data_chunk.shape})")
-                    # Reset for next chunk
-                    gap_chunk_num += 1
-                    gap_chunk_count = 0
-                    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37), dtype=np.float32)
+            # Save chunk if it's full
+            if gap_chunk_count == chunk_batch_size:
+                if save_to_dir is not None:
+                    np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_gap_chunk{gap_chunk_num}.npy', gap_data_chunk)
+                    if verbose: print(f"Saved gap chunk {gap_chunk_num} (shape: {gap_data_chunk.shape})")
+                # Reset for next chunk
+                gap_chunk_num += 1
+                gap_chunk_count = 0
+                gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
 
     subject.close_all_files()
     del subject
@@ -208,6 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
     parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_benchmark_data_chunks")
     parser.add_argument('--only_update_df', type=bool, required=False, help='Only update the words dataframe without processing neural data', default=False)
+    parser.add_argument('--spectrogram', type=bool, required=False, help='Use spectrogram', default=False)
     args = parser.parse_args()
     sub_id = args.sub_id
     trial_id = args.trial_id
@@ -215,6 +237,7 @@ if __name__ == "__main__":
     max_chunks = args.max_chunks
     save_to_dir = args.save_to_dir
     only_update_df = args.only_update_df
+    spectrogram = args.spectrogram
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
     nperseg = 256 # TODO: move to braintreebank_config.py
@@ -227,4 +250,4 @@ if __name__ == "__main__":
             if only_update_df:
                 continue
             process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=laplacian_rereferenced, max_chunks=max_chunks, verbose=True, 
-                                  global_per_electrode_normalizing_params=True, save_to_dir=save_to_dir, nperseg=nperseg)
+                                  global_per_electrode_normalizing_params=True, save_to_dir=save_to_dir, nperseg=nperseg, spectrogram=spectrogram)
