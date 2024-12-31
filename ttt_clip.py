@@ -36,6 +36,7 @@ args.subjects = "3"
 args.spectrogram = 1
 args.binarize_eval = 1
 args.temp_clip_param = 1
+args.test_chunks_interleaved = 0
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -59,6 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--spectrogram', type=int, default=args.spectrogram, help='Use spectrogram')
     parser.add_argument('--binarize_eval', type=int, default=args.binarize_eval, help='Binarize evaluation')
     parser.add_argument('--temp_clip_param', type=int, default=args.temp_clip_param, help='Use temperature clip parameter')
+    parser.add_argument('--test_chunks_interleaved', type=int, default=args.test_chunks_interleaved, help='Test chunks interleaved')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -67,7 +69,7 @@ if __name__ == '__main__':
         print(f"Waiting {args.wait_n_intervals} intervals")
         for i in range(args.wait_n_intervals):
             print(f"Waiting {i+1} of {args.wait_n_intervals}")
-            time.sleep(10)
+            time.sleep(5)
 
 train_subject_trials = []
 for subject in args.subjects:
@@ -98,6 +100,7 @@ training_config = {
 
     'binarize_eval': args.binarize_eval==1,
     'temp_clip_param': args.temp_clip_param==1,
+    'test_chunks_interleaved': args.test_chunks_interleaved==1,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -124,7 +127,7 @@ transformer_config['dim_output'] = transformer_config['d_model']
 
 # Set all random seeds for reproducibility
 if (not ('random_string' in training_config)) or (len(training_config['random_string']) == 0):
-    training_config['random_string'] = str(time.time())[-6:]
+    training_config['random_string'] = str(time.time())[-5:]
 random_seed = int(training_config['random_string'], 36) * 1000000 + 123456
 random_seed **= 2
 random_seed %= 2**32
@@ -140,6 +143,8 @@ def update_dir_name():
         dir_name += f"_be"
     if training_config['temp_clip_param']:
         dir_name += f"_tc"
+    if training_config['test_chunks_interleaved']:
+        dir_name += f"_ti"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"
@@ -812,7 +817,8 @@ if __name__ == "__main__":
     eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
                                                                      spectrogram=transformer_config['spectrogram'], 
                                                                      cache_in_memory=True, 
-                                                                     binarize=training_config['binarize_eval']) 
+                                                                     binarize=training_config['binarize_eval'],
+                                                                     test_chunks_interleaved=training_config['test_chunks_interleaved']) 
                                                                      for eval_trial_id in eval_trial_ids]
 
     avg_distance_store = []
