@@ -879,7 +879,8 @@ if __name__ == "__main__":
             time_per_step = (time.time() - training_start_time) / max(steps_done, 1)
             time_remaining = time_per_step * (training_config['total_steps'] - steps_done)
             time_str = f"{int(time_remaining//3600):02d}:{int((time_remaining%3600)//60):02d}:{int(time_remaining%60):02d}"
-            current_time_str = f"{int(time.time()//3600):02d}:{int((time.time()%3600)//60):02d}:{int(time.time()%60):02d}"
+            current_time = time.localtime()
+            current_time_str = f"{current_time.tm_hour:02d}:{current_time.tm_min:02d}:{current_time.tm_sec:02d}"
             gpu_mem_used = torch.cuda.memory_allocated() / 1024**2 # Convert to MB
             
             loss.backward()
