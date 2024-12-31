@@ -92,11 +92,11 @@ def obtain_aligned_words_df(sub_id, trial_id, verbose=True, save_to_dir="braintr
                  (words_df[est_end_idx_col] <= total_samples - BENCHMARK_END_DATA_AFTER_ONSET * SAMPLING_RATE)
     words_df = words_df[valid_words].reset_index(drop=True)
 
-    # add "rms_percentile" and "pitch_percentile" columns
-    all_rms_values = words_df['rms'].to_numpy() # shape: (n_words,)
-    all_pitch_values = words_df['pitch'].to_numpy() # shape: (n_words,)
-    words_df['rms_percentile'] = words_df.apply(lambda row: np.mean(all_rms_values[all_rms_values < row['rms']]), axis=1)
-    words_df['pitch_percentile'] = words_df.apply(lambda row: np.mean(all_pitch_values[all_pitch_values < row['pitch']]), axis=1)
+    # add percentile columns
+    numerical_cols = ['rms', 'pitch']
+    for col in numerical_cols:
+        all_values = words_df[col].to_numpy() # shape: (n_words,)
+        words_df[f'{col}_percentile'] = words_df.apply(lambda row: np.mean(all_values <= row[col]), axis=1)
 
     if verbose: print(f"Kept {len(words_df)} words after removing invalid windows")
     if verbose: print(f"Done.")
@@ -207,6 +207,9 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                         gap_data_chunk[gap_chunk_count, j, :, :] = (gap_data_chunk[gap_chunk_count, j, :, :] - np.mean(gap_data_chunk[gap_chunk_count, j, :, :]).item()) / np.std(gap_data_chunk[gap_chunk_count, j, :, :]).item()
     
             gap_chunk_count += 1
+            window_start_sample += window_length
+            window_end_sample += window_length
+            gap_samples -= window_length
 
             # Save chunk if it's full
             if gap_chunk_count == chunk_batch_size:

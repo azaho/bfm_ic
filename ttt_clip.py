@@ -33,7 +33,7 @@ args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = "bfm_clip_deepfinetuningtests"
 args.subjects = "3"
-args.pushaway = 0.00
+args.spectrogram = False
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros', 'coordinates_nograd'], help='Electrode embedding initialization')
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
-    parser.add_argument('--pushaway', type=float, default=args.pushaway, help='Push-away strength')
+    parser.add_argument('--spectrogram', type=bool, default=args.spectrogram, help='Use spectrogram')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -90,7 +90,6 @@ training_config = {
     'max_gradient_norm': args.max_gradient_norm,
     'wandb_project': args.wandb_project,
     'wandb_commit_every_n_batches': 100,
-    'pushaway': args.pushaway,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -98,7 +97,7 @@ wandb_log = (len(args.wandb_project) > 0)
 transformer_config = {
     'model_name': "t", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon)
     'max_n_electrodes': 158,#158,
-    'n_freq_features': 37,
+    'n_freq_features': 37 if not args.spectrogram else 256,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
@@ -125,6 +124,8 @@ np.random.seed(random_seed)
 
 def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
+    if not args.spectrogram:
+        dir_name += f"_ns"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"
@@ -138,7 +139,6 @@ def update_dir_name():
     dir_name += f"_bs{training_config['batch_size']}"
     dir_name += f"_wd{training_config['weight_decay']}"
     dir_name += f"_mg{training_config['max_gradient_norm']}"
-    dir_name += f"_pa{training_config['pushaway']}"
     dir_name += f"_lrmax{training_config['lr_max']}"
     dir_name += f"_lrmin{training_config['lr_min']}"
     dir_name += f"_lrwm{training_config['lr_warmup_steps']}" if 'lr_warmup_steps' in training_config else f"_lrwf{training_config['lr_warmup_frac']}"
