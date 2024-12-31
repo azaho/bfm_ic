@@ -663,7 +663,7 @@ class BrainTreebankDataLoader:
         return batch, electrode_emb, (subject_id, trial_id)
 
 class BrainTreebankSubjectTrialBenchmarkDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False, cache_in_memory=False, percentiles=True, binarize=True, p_test_chunks=0.5, test_chunks_interleaved=False):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
@@ -677,6 +677,15 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         all_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
         self.words_df = pd.read_csv(all_path)
         self.n_chunks = len(self.words_df) // 100
+        self.p_test_chunks = p_test_chunks
+        self.n_test_chunks = int(self.n_chunks * self.p_test_chunks)
+        self.n_train_chunks = self.n_chunks - self.n_test_chunks
+        if test_chunks_interleaved:
+            self.test_chunks = np.arange(0, self.n_chunks, 2)
+            self.train_chunks = np.arange(1, self.n_chunks, 2)
+        else:
+            self.test_chunks = np.arange(self.n_test_chunks)
+            self.train_chunks = np.arange(self.n_test_chunks, self.n_chunks)
 
         self.cache_in_memory = cache_in_memory
         if self.cache_in_memory:
@@ -798,11 +807,13 @@ if __name__ == "__main__":
             settings=wandb.Settings(init_timeout=120)
         )
 
-    eval_train_chunks = np.arange(48)
-    eval_test_chunks = np.arange(48, 96)
     eval_subject_id = 3
-    eval_trial_id = 0
-    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=transformer_config['spectrogram'], cache_in_memory=True, binarize=training_config['binarize_eval'])
+    eval_trial_ids = [0, 1, 2]
+    eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
+                                                                     spectrogram=transformer_config['spectrogram'], 
+                                                                     cache_in_memory=True, 
+                                                                     binarize=training_config['binarize_eval']) 
+                                                                     for eval_trial_id in eval_trial_ids]
 
     avg_distance_store = []
     test_loss_store = []
@@ -937,48 +948,52 @@ if __name__ == "__main__":
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
                     electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
-                    # Collect features and labels for training chunks
-                    train_features_electrode = []
-                    train_features_time = []
-                    train_labels = []
-                    for train_chunk in eval_train_chunks:
-                        eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
-                        n_electrodes = len(electrode_emb)
-                        permutation = torch.randperm(n_electrodes)
-                        eval_input = eval_input[:, :, :n_electrodes, :, :]
-                        eval_input = eval_input[:, :, permutation, :, :]
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
-                        electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
-                        time_output = time_transformer(electrode_output)
-                        
-                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        
-                        train_features_electrode.append(electrode_output_mean)
-                        train_features_time.append(time_output_mean)
+                    for eval_dataloader in eval_dataloaders:
+                        eval_train_chunks = eval_dataloader.train_chunks
+                        eval_test_chunks = eval_dataloader.test_chunks
+                        # Collect features and labels for training chunks
+                        train_features_electrode = []
+                        train_features_time = []
+                        train_labels = []
+                        for train_chunk in eval_train_chunks:
+                            eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
+                            train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
+                            n_electrodes = len(electrode_emb)
+                            permutation = torch.randperm(n_electrodes)
+                            eval_input = eval_input[:, :, :n_electrodes, :, :]
+                            eval_input = eval_input[:, :, permutation, :, :]
 
-                    # Collect features and labels for test chunks  
-                    test_features_electrode = []
-                    test_features_time = []
-                    test_labels = []
-                    for test_chunk in eval_test_chunks:
-                        eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
-                        n_electrodes = len(electrode_emb)
-                        permutation = torch.randperm(n_electrodes)
-                        eval_input = eval_input[:, :, :n_electrodes, :, :]
-                        eval_input = eval_input[:, :, permutation, :, :]
+                            electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
+                            electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
+                            time_output = time_transformer(electrode_output)
+                            
+                            electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                            time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                            
+                            train_features_electrode.append(electrode_output_mean)
+                            train_features_time.append(time_output_mean)
 
-                        electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
-                        electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
-                        time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
-                        
-                        electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
-                        test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
-                        test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
+                        # Collect features and labels for test chunks  
+                        test_features_electrode = []
+                        test_features_time = []
+                        test_labels = []
+                        for test_chunk in eval_test_chunks:
+                            eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
+                            test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
+                            n_electrodes = len(electrode_emb)
+                            permutation = torch.randperm(n_electrodes)
+                            eval_input = eval_input[:, :, :n_electrodes, :, :]
+                            eval_input = eval_input[:, :, permutation, :, :]
+
+                            electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
+                            electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
+                            time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
+                            
+                            electrode_output_mean = electrode_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                            time_output_mean = time_output.mean(dim=[1, 2, 3]).detach().cpu().float().numpy()
+                            test_features_electrode.append(electrode_output_mean) # shape: (n_words_per_chunk, d_model)
+                            test_features_time.append(time_output_mean) # shape: (n_words_per_chunk, d_model)
 
                     # Convert lists to arrays
                     train_features_electrode = np.concatenate(train_features_electrode)
