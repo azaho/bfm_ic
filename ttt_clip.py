@@ -94,7 +94,7 @@ training_config = {
     'max_gradient_norm': args.max_gradient_norm,
 
     'wandb_project': args.wandb_project,
-    'wandb_commit_every_n_batches': 100,
+    'wandb_commit_every_n_batches': 500,
 
     'binarize_eval': args.binarize_eval==1,
     'temp_clip_param': args.temp_clip_param==1,
