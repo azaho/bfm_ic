@@ -172,6 +172,7 @@ class Subject:
     def close_all_files(self):
         for h5f in self.h5f_files.values():
             h5f.close()
+        self.clear_neural_data_cache()
 
 if __name__ == "__main__":
     # all subject trials including the special case for subject 6 which only has trials 0, 1, and 4

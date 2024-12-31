@@ -33,9 +33,9 @@ args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = "bfm_clip_deepfinetuningtests"
 args.subjects = "3"
-args.spectrogram = True
-args.binarize_eval = True
-args.temp_clip_param = True
+args.spectrogram = 1
+args.binarize_eval = 1
+args.temp_clip_param = 1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -56,9 +56,9 @@ if __name__ == '__main__':
     parser.add_argument('--electrode_embedding_init', type=str, default=args.electrode_embedding_init, choices=['normal', 'zeros', 'coordinates_nograd'], help='Electrode embedding initialization')
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
-    parser.add_argument('--spectrogram', type=bool, default=args.spectrogram, help='Use spectrogram')
-    parser.add_argument('--binarize_eval', type=bool, default=args.binarize_eval, help='Binarize evaluation')
-    parser.add_argument('--temp_clip_param', type=bool, default=args.temp_clip_param, help='Use temperature clip parameter')
+    parser.add_argument('--spectrogram', type=int, default=args.spectrogram, help='Use spectrogram')
+    parser.add_argument('--binarize_eval', type=int, default=args.binarize_eval, help='Binarize evaluation')
+    parser.add_argument('--temp_clip_param', type=int, default=args.temp_clip_param, help='Use temperature clip parameter')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -77,7 +77,7 @@ for subject in args.subjects:
 
 training_config = {
     'n_epochs': 1000,
-    'save_network_every_n_epochs': 1, # XXX
+    'save_network_every_n_epochs': 20,
     'save_losses_every_n_batches': 20,
     'save_test_losses_every_n_batches': 100,
     'save_eval_every_n_batches': 100,
@@ -96,8 +96,8 @@ training_config = {
     'wandb_project': args.wandb_project,
     'wandb_commit_every_n_batches': 100,
 
-    'binarize_eval': args.binarize_eval,
-    'temp_clip_param': args.temp_clip_param,
+    'binarize_eval': args.binarize_eval==1,
+    'temp_clip_param': args.temp_clip_param==1,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -116,6 +116,8 @@ transformer_config = {
     'device': device,
     'optimizer': args.optimizer,
     'electrode_embedding_init': args.electrode_embedding_init,
+
+    'spectrogram': args.spectrogram==1,
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 transformer_config['dim_output'] = transformer_config['d_model']
@@ -132,24 +134,28 @@ np.random.seed(random_seed)
 
 def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
-    if not args.spectrogram:
+    if not training_config['spectrogram']:
         dir_name += f"_ns"
+    if training_config['binarize_eval']:
+        dir_name += f"_be"
+    if training_config['temp_clip_param']:
+        dir_name += f"_tc"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"
     dir_name += f"_nh{transformer_config['n_heads']}"
     dir_name += f"_nl{transformer_config['n_layers']}"
     dir_name += f"_dr{transformer_config['dropout']}"
-    dir_name += f"_{str(transformer_config['dtype']).split('.')[1].replace('float', 'f')}"
-    dir_name += f"_mt{''.join([x[0] for x in transformer_config['mask_type'].split('-')]).upper()}"
-    dir_name += f"_opt{transformer_config['optimizer']}"
+    #dir_name += f"_{str(transformer_config['dtype']).split('.')[1].replace('float', 'f')}"
+    #dir_name += f"_mt{''.join([x[0] for x in transformer_config['mask_type'].split('-')]).upper()}"
+    #dir_name += f"_opt{transformer_config['optimizer']}"
     dir_name += f"_ei{transformer_config['electrode_embedding_init'][0].upper()}"
     dir_name += f"_bs{training_config['batch_size']}"
     dir_name += f"_wd{training_config['weight_decay']}"
-    dir_name += f"_mg{training_config['max_gradient_norm']}"
+    #dir_name += f"_mg{training_config['max_gradient_norm']}"
     dir_name += f"_lrmax{training_config['lr_max']}"
     dir_name += f"_lrmin{training_config['lr_min']}"
-    dir_name += f"_lrwm{training_config['lr_warmup_steps']}" if 'lr_warmup_steps' in training_config else f"_lrwf{training_config['lr_warmup_frac']}"
+    #dir_name += f"_lrwm{training_config['lr_warmup_steps']}" if 'lr_warmup_steps' in training_config else f"_lrwf{training_config['lr_warmup_frac']}"
     dir_name += f"_r{training_config['random_string']}"
     return dir_name
 dir_name = update_dir_name()
@@ -201,14 +207,15 @@ class Muon(torch.optim.Optimizer):
                 p.data.add_(g, alpha=-lr)
 
 class BrainTreebankSubjectTrialDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0, spectrogram=False):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
         self.n_time_bins = transformer_config['max_n_time_bins']
+        self.spectrogram = spectrogram
         # Load metadata
-        metadata_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}.json"
+        metadata_path = f"braintreebank_data_chunks{'_raw' if not spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}.json"
         with open(metadata_path) as f:
             self.metadata = json.load(f)
         # Store metadata fields
@@ -232,7 +239,7 @@ class BrainTreebankSubjectTrialDataLoader:
         self.test_chunks = []
 
     def _load_chunk(self, chunk_id):
-        chunk_path = f"braintreebank_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+        chunk_path = f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path))
         return chunk_data.unsqueeze(0)
     
@@ -295,14 +302,14 @@ class BrainTreebankSubjectTrialDataLoader:
         return (len(self.test_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
     
 class BrainTreebankDataLoader:
-    def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True, p_test_chunks=0.0, randomize_electrode_order=True):
+    def __init__(self, subject_trials, trim_electrodes_to=None, device='cuda', randomize_subject_trials=True, randomize_chunk_order=True, p_test_chunks=0.0, randomize_electrode_order=True, spectrogram=False):
         self.subject_trials = subject_trials
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
         self.randomize_subject_trials = randomize_subject_trials
         self.randomize_chunk_order = randomize_chunk_order
         self.randomize_electrode_order = randomize_electrode_order
-
+        self.spectrogram = spectrogram
         self.subject_store = {}
         for subject_id, trial_id in self.subject_trials:
             if subject_id not in self.subject_store:
@@ -312,7 +319,7 @@ class BrainTreebankDataLoader:
         self.subject_n_electrodes = {}
         for subject_id, trial_id in self.subject_trials:
             dataloader = BrainTreebankSubjectTrialDataLoader(subject_id, trial_id, trim_electrodes_to=self.trim_electrodes_to, 
-                                                             device=device, randomize_chunk_order=self.randomize_chunk_order, p_test_chunks=p_test_chunks)
+                                                             device=device, randomize_chunk_order=self.randomize_chunk_order, p_test_chunks=p_test_chunks, spectrogram=self.spectrogram)
             self.subject_n_electrodes[subject_id] = dataloader.n_electrodes
             self.dataloader_store.append(dataloader)
 
@@ -395,26 +402,27 @@ class BrainTreebankDataLoader:
         return batch, electrode_emb, (subject_id, trial_id)
 
 class BrainTreebankSubjectTrialBenchmarkDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_electrode_order=True, spectrogram=False):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
         self.device = device
         self.n_time_bins = transformer_config['max_n_time_bins']
         self.randomize_electrode_order = randomize_electrode_order
+        self.spectrogram = spectrogram
 
-        all_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
+        all_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
         self.words_df = pd.read_csv(all_path)
 
     def get_chunk_input(self, chunk_id, permutation=None):
-        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+        chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         if permutation is not None:
             chunk_data = chunk_data[:, permutation, :, :]
         return chunk_data.unsqueeze(1) 
     
     def get_chunk_labels(self, chunk_id, label_type='rms', percentiles=True, binarize=True):
-        chunk_path = f"braintreebank_benchmark_data_chunks/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
+        chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.csv"
         chunk_labels = pd.read_csv(chunk_path)[label_type].to_numpy() # shape: (n_chunks)
         if percentiles: 
             overall_labels = self.words_df[label_type].to_numpy()
@@ -442,7 +450,7 @@ if __name__ == "__main__":
 
     dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], 
                                          trim_electrodes_to=transformer_config['max_n_electrodes'], device=device,
-                                         p_test_chunks=training_config['p_test_chunks'])
+                                         p_test_chunks=training_config['p_test_chunks'], spectrogram=training_config['spectrogram'])
 
     total_steps = int(training_config['n_epochs'] * len(dataloader))
     training_config['total_steps'] = total_steps
@@ -645,7 +653,7 @@ if __name__ == "__main__":
                     test_chunks = np.arange(48, 96)
                     eval_subject_id = 3
                     eval_trial_id = 0
-                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id)
+                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=training_config['spectrogram'])
                     electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                     # Collect features and labels for training chunks
                     train_features_electrode = []

@@ -32,6 +32,14 @@ electrode_init_index=0
 pushaway_index=0
 filename_index=0
 random_string_index=0
+wd_index=0
+nl_index=0
+d_model_index=$((nl_index))
+subjects_index=0
+
+spectrogram=1
+binarize_eval=1
+temp_clip_param=1
 
 # Calculate base index for this job
 base_index=$((SLURM_ARRAY_TASK_ID * 8))
@@ -43,18 +51,18 @@ for gpu_id in {0..7}; do
 
     # Calculate indices for each hyperparameter
     lr_index=$((index % 2))
-    nl_index=$((index / 2 % 2))
-    wd_index=$((index / 4 % 2))
-    subjects_index=$((index / 8 % 2))
+    spectrogram=$((index / 2 % 2))
+    binarize_eval=$((index / 4 % 2))
+    temp_clip_param=$((index / 8 % 2))
     electrode_init_index=$((index / 16 % 3))
     dropout_index=$((index / 48 % 3))
-    d_model_index=$((nl_index))
 
     echo "python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} --pushaway ${pushaway_array[pushaway_index]} --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin 0.0 --weight_decay $wd --max_gradient_norm $max_gradient_norm --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip3 --nl ${nl_array[nl_index]}"
 
     srun --exclusive -n1 python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
+    --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} \
     --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} --pushaway ${pushaway_array[pushaway_index]} \
-    --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin 0.0 --weight_decay ${wd_array[wd_index]} --max_gradient_norm $max_gradient_norm \
+    --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --max_gradient_norm $max_gradient_norm \
     --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfm_clip4 --nl ${nl_array[nl_index]} &
 done
 
