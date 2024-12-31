@@ -71,13 +71,12 @@ if __name__ == '__main__':
             print(f"Waiting {i+1} of {args.wait_n_intervals}")
             time.sleep(5)
 
+all_eval_subject_trials = [(1, 2), (2, 6), (3, 0), (4, 2), (5, 0), (6, 1), (10, 0)] # made to match PopT paper
 train_subject_trials = []
 for subject in args.subjects:
     if subject == '0': subject = 10
     else: subject = int(subject)
-    train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject)
-
-train_subject_trials = [(3, 1), (3, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4)] #XXX
+    train_subject_trials.extend((subject_id, trial_id) for subject_id, trial_id in all_subject_trials if subject_id == subject and (subject_id, trial_id) not in all_eval_subject_trials)
 
 training_config = {
     'n_epochs': 250,
@@ -814,14 +813,15 @@ if __name__ == "__main__":
             settings=wandb.Settings(init_timeout=480)
         )
 
-    eval_subject_id = 3
-    eval_trial_ids = [0]
+    training_on_subjects = [subject_id for subject_id, trial_id in training_config['train_subject_trials']]
+    eval_subject_trials = [(subject_id, trial_id) for subject_id, trial_id in all_eval_subject_trials if subject_id in training_on_subjects]
+    eval_subject_trials = [(3, 0)] # XXX
     eval_dataloaders = [BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, 
                                                                      spectrogram=transformer_config['spectrogram'], 
                                                                      cache_in_memory=True, 
                                                                      binarize=training_config['binarize_eval'],
                                                                      test_chunks_interleaved=training_config['test_chunks_interleaved']) 
-                                                                     for eval_trial_id in eval_trial_ids]
+                                                                     for eval_subject_id, eval_trial_id in eval_subject_trials]
 
     avg_distance_store = []
     test_loss_store = []
@@ -956,11 +956,13 @@ if __name__ == "__main__":
             test_r_squared_time = None
             if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
                 with torch.no_grad():
-                    electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
+                    
 
                     for eval_dataloader in eval_dataloaders:
                         eval_train_chunks = eval_dataloader.train_chunks
                         eval_test_chunks = eval_dataloader.test_chunks
+                        eval_subject_id = eval_dataloader.subject_id
+                        electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                         # Collect features and labels for training chunks
                         train_features_electrode = []
                         train_features_time = []
