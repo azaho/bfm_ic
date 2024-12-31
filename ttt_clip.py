@@ -971,7 +971,8 @@ if __name__ == "__main__":
             train_r_time = 0
             test_r_electrode = 0
             test_r_time = 0
-            if (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0:
+            to_save_eval = (overall_batch_i+1) % training_config['save_eval_every_n_batches'] == 0
+            if to_save_eval:
                 with torch.no_grad():
                     
 
@@ -1135,7 +1136,7 @@ if __name__ == "__main__":
                 }
                 if overall_test_loss is not None:
                     log_dict['test_loss'] = overall_test_loss
-                if train_r_squared_electrode is not None:
+                if to_save_eval:
                     log_dict['eval/train_r2_electrode'] = train_r_squared_electrode
                     log_dict['eval/test_r2_electrode'] = test_r_squared_electrode
                     log_dict['eval/train_r2_time'] = train_r_squared_time
