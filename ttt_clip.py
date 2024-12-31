@@ -1078,7 +1078,7 @@ if __name__ == "__main__":
                               f"Time -- Train AUC: {train_roc_time:.4f} (R2: {train_r_squared_time:.4f}, R: {train_r_time:.4f}) -- Test AUC: {test_roc_time:.4f} (R2: {test_r_squared_time:.4f}, R: {test_r_time:.4f})")
 
 
-            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s -- Temp param: {temp_clip_param:.4f}")
+            print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s -- Temp param: {temp_clip_param.item():.4f}")
             if wandb_log:
                 log_dict = {
                     "loss": loss.item(),
