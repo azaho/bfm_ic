@@ -158,7 +158,7 @@ def update_dir_name():
     dir_name += f"_dr{transformer_config['dropout']}"
     #dir_name += f"_{str(transformer_config['dtype']).split('.')[1].replace('float', 'f')}"
     #dir_name += f"_mt{''.join([x[0] for x in transformer_config['mask_type'].split('-')]).upper()}"
-    #dir_name += f"_opt{transformer_config['optimizer']}"
+    dir_name += f"_opt{transformer_config['optimizer']}"
     dir_name += f"_ei{transformer_config['electrode_embedding_init'][0].upper()}"
     dir_name += f"_bs{training_config['batch_size']}"
     dir_name += f"_wd{training_config['weight_decay']}"
