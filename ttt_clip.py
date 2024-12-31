@@ -134,7 +134,7 @@ np.random.seed(random_seed)
 
 def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
-    if not training_config['spectrogram']:
+    if not transformer_config['spectrogram']:
         dir_name += f"_ns"
     if training_config['binarize_eval']:
         dir_name += f"_be"
@@ -450,7 +450,7 @@ if __name__ == "__main__":
 
     dataloader = BrainTreebankDataLoader(training_config['train_subject_trials'], 
                                          trim_electrodes_to=transformer_config['max_n_electrodes'], device=device,
-                                         p_test_chunks=training_config['p_test_chunks'], spectrogram=training_config['spectrogram'])
+                                         p_test_chunks=training_config['p_test_chunks'], spectrogram=transformer_config['spectrogram'])
 
     total_steps = int(training_config['n_epochs'] * len(dataloader))
     training_config['total_steps'] = total_steps
@@ -653,7 +653,7 @@ if __name__ == "__main__":
                     test_chunks = np.arange(48, 96)
                     eval_subject_id = 3
                     eval_trial_id = 0
-                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=training_config['spectrogram'])
+                    eval_dataloader = BrainTreebankSubjectTrialBenchmarkDataLoader(eval_subject_id, eval_trial_id, spectrogram=transformer_config['spectrogram'])
                     electrode_emb = dataloader.subject_electrode_emb_store[eval_subject_id]
                     # Collect features and labels for training chunks
                     train_features_electrode = []
