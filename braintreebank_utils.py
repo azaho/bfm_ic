@@ -163,6 +163,9 @@ class Subject:
     def get_spectrogram_normalizing_params(self, electrode_label, trial_id, laplacian_rereferenced=False, cache=True):
         f, t, Sxx = self.get_spectrogram(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=cache)
         return np.mean(Sxx, axis=1), np.std(Sxx, axis=1)
+    def get_electrode_data_normalizing_params(self, electrode_label, trial_id, laplacian_rereferenced=False, cache=True):
+        data = self.get_electrode_data(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=cache)
+        return np.mean(data, axis=0), np.std(data, axis=0)
     def close_all_files(self):
         for h5f in self.h5f_files.values():
             h5f.close()
