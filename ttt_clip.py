@@ -207,7 +207,7 @@ class Muon(torch.optim.Optimizer):
                 p.data.add_(g, alpha=-lr)
 
 class BrainTreebankSubjectTrialDataLoader:
-    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0, spectrogram=False):
+    def __init__(self, subject_id, trial_id, trim_electrodes_to=None, device='cuda', randomize_chunk_order=True, p_test_chunks=0.0, spectrogram=False, cache_in_memory=True):
         self.subject_id = subject_id
         self.trial_id = trial_id
         self.trim_electrodes_to = trim_electrodes_to
@@ -238,10 +238,26 @@ class BrainTreebankSubjectTrialDataLoader:
         self.train_chunks = []
         self.test_chunks = []
 
+        self.cache_in_memory = cache_in_memory
+        if self.cache_in_memory:
+            self._preload_all_chunks()
+
+    def _preload_all_chunks(self):
+        self.chunk_data_cache = {}
+        for chunk_id in range(self.n_chunks):
+            chunk_path = f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+            # load once
+            chunk_data = torch.from_numpy(np.load(chunk_path))
+            self.chunk_data_cache[chunk_id] = chunk_data.unsqueeze(0)
+
     def _load_chunk(self, chunk_id):
-        chunk_path = f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
-        chunk_data = torch.from_numpy(np.load(chunk_path))
-        return chunk_data.unsqueeze(0)
+        if self.cache_in_memory:
+            return self.chunk_data_cache[chunk_id]
+        else:
+            # Fallback to on-demand loading
+            chunk_path = f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
+            chunk_data = torch.from_numpy(np.load(chunk_path))
+            return chunk_data.unsqueeze(0)
     
     def _get_next_chunk_id(self):
         self.current_train_chunk += 1
