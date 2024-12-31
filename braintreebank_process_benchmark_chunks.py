@@ -232,7 +232,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
     parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_benchmark_data_chunks")
     parser.add_argument('--only_update_df', type=bool, required=False, help='Only update the words dataframe without processing neural data', default=False)
-    parser.add_argument('--spectrogram', type=bool, required=False, help='Use spectrogram', default=False)
+    parser.add_argument('--spectrogram', type=int, required=False, help='Use spectrogram', default=0)
     args = parser.parse_args()
     sub_id = args.sub_id
     trial_id = args.trial_id
@@ -240,7 +240,7 @@ if __name__ == "__main__":
     max_chunks = args.max_chunks
     save_to_dir = args.save_to_dir
     only_update_df = args.only_update_df
-    spectrogram = args.spectrogram
+    spectrogram = args.spectrogram==1
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
     nperseg = 256 # TODO: move to braintreebank_config.py

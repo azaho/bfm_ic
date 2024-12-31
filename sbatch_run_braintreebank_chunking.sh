@@ -16,5 +16,5 @@ export HDF5_USE_FILE_LOCKING=FALSE
 #index=$SLURM_ARRAY_TASK_ID
 #n_top_pc_llm_index=$((index % 4))
 
-python braintreebank_process_chunks.py --sub_id $SLURM_ARRAY_TASK_ID --spectrogram False --save_to_dir braintreebank_data_chunks_raw
+python braintreebank_process_chunks.py --sub_id $SLURM_ARRAY_TASK_ID --spectrogram 0 --save_to_dir braintreebank_data_chunks_raw
 # --save_to_dir /om/user/zaho/bfm_ic/btb_data_chunks_new

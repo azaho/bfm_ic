@@ -34,6 +34,8 @@ args.electrode_embedding_init = 'normal'
 args.wandb_project = "bfm_clip_deepfinetuningtests"
 args.subjects = "3"
 args.spectrogram = True
+args.binarize_eval = True
+args.temp_clip_param = True
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -55,6 +57,8 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_project', type=str, default=args.wandb_project, help='Weights & Biases project name')
     parser.add_argument('--subjects', type=str, default=args.subjects, help='Subject numbers (digits only)')
     parser.add_argument('--spectrogram', type=bool, default=args.spectrogram, help='Use spectrogram')
+    parser.add_argument('--binarize_eval', type=bool, default=args.binarize_eval, help='Binarize evaluation')
+    parser.add_argument('--temp_clip_param', type=bool, default=args.temp_clip_param, help='Use temperature clip parameter')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -88,8 +92,12 @@ training_config = {
     'weight_decay': args.weight_decay,
     'random_string': args.rs,
     'max_gradient_norm': args.max_gradient_norm,
+
     'wandb_project': args.wandb_project,
     'wandb_commit_every_n_batches': 100,
+
+    'binarize_eval': args.binarize_eval,
+    'temp_clip_param': args.temp_clip_param,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -448,6 +456,12 @@ if __name__ == "__main__":
     all_embedding_params = dataloader.parameters()
     all_params = all_model_params + all_embedding_params
 
+    if training_config['temp_clip_param']:
+        temp_clip_param = torch.nn.Parameter(torch.tensor(0.0, device=device, dtype=transformer_config['dtype']))
+        all_params.append(temp_clip_param)
+    else:
+        temp_clip_param = torch.tensor(0.0, device=device, dtype=transformer_config['dtype'])
+
     transformer_config['n_emb_params'] = dataloader.get_n_embedding_params()
     print(f"Number of electrode embedding parameters: {transformer_config['n_emb_params']}")
     num_model_params = sum(p.numel() for p in all_model_params if p.requires_grad)
@@ -529,7 +543,7 @@ if __name__ == "__main__":
 
             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) * torch.exp(temp_clip_param) # shape: (n_time_bins, batch_size, batch_size)
 
             electrode_output_reshaped = electrode_output.squeeze(1).squeeze(1).transpose(0, 1)[1:] # shape: (n_time_bins-2, batch_size, d_model)
             electrode_output2_reshaped = electrode_output2.squeeze(1).squeeze(1).transpose(0, 1)[:-1] # shape: (n_time_bins-2, batch_size, d_model)
@@ -600,7 +614,7 @@ if __name__ == "__main__":
 
                             time_output_reshaped = time_output.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
                             time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
-                            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) # shape: (n_time_bins, batch_size, batch_size)
+                            similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) * torch.exp(temp_clip_param) # shape: (n_time_bins, batch_size, batch_size)
 
                             electrode_output_reshaped = electrode_output.squeeze(1).squeeze(1).transpose(0, 1)[1:] # shape: (n_time_bins-2, batch_size, d_model)
                             electrode_output2_reshaped = electrode_output2.squeeze(1).squeeze(1).transpose(0, 1)[:-1] # shape: (n_time_bins-2, batch_size, d_model)
@@ -639,7 +653,7 @@ if __name__ == "__main__":
                     train_labels = []
                     for train_chunk in train_chunks:
                         eval_input = eval_dataloader.get_chunk_input(train_chunk)# shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk))
+                        train_labels.append(eval_dataloader.get_chunk_labels(train_chunk, binarize=training_config['binarize_eval']))
                         n_electrodes = len(electrode_emb)
                         permutation = torch.randperm(n_electrodes)
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
@@ -661,7 +675,7 @@ if __name__ == "__main__":
                     test_labels = []
                     for test_chunk in test_chunks:
                         eval_input = eval_dataloader.get_chunk_input(test_chunk) # shape: (n_words_per_chunk, 1, n_electrodes, n_time_bins, n_freq_features)
-                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk))
+                        test_labels.append(eval_dataloader.get_chunk_labels(test_chunk, binarize=training_config['binarize_eval']))
                         n_electrodes = len(electrode_emb)
                         permutation = torch.randperm(n_electrodes)
                         eval_input = eval_input[:, :, :n_electrodes, :, :]
@@ -683,30 +697,68 @@ if __name__ == "__main__":
                     test_features_electrode = np.concatenate(test_features_electrode)
                     test_features_time = np.concatenate(test_features_time)
                     test_labels = np.concatenate(test_labels)
+                    if training_config['binarize_eval']:
+                        # Filter out labels that are -1 (no-label class)
+                        train_mask = train_labels >= 0
+                        test_mask = test_labels >= 0
+                        train_features_electrode = train_features_electrode[train_mask]
+                        train_features_time = train_features_time[train_mask] 
+                        train_labels = train_labels[train_mask]
+                        test_features_electrode = test_features_electrode[test_mask]
+                        test_features_time = test_features_time[test_mask]
+                        test_labels = test_labels[test_mask]
 
-                    # Fit linear regression for electrode features
-                    electrode_regressor = sklearn.linear_model.LinearRegression()
-                    electrode_regressor.fit(train_features_electrode, train_labels)
-                    train_pred_electrode = electrode_regressor.predict(train_features_electrode)
-                    test_pred_electrode = electrode_regressor.predict(test_features_electrode)
-                    train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
-                    test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
-                    train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
-                    test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
+                    if training_config['binarize_eval']:
+                        # Fit logistic regression for electrode features
+                        electrode_regressor = sklearn.linear_model.LogisticRegression()
+                        electrode_regressor.fit(train_features_electrode, train_labels)
+                        train_pred_electrode = electrode_regressor.predict_proba(train_features_electrode)[:, 1]
+                        test_pred_electrode = electrode_regressor.predict_proba(test_features_electrode)[:, 1]
+                        train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
+                        test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
+                        train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
+                        test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
+                        train_roc_electrode = sklearn.metrics.roc_auc_score(train_labels, train_pred_electrode)
+                        test_roc_electrode = sklearn.metrics.roc_auc_score(test_labels, test_pred_electrode)
 
-                    # Fit linear regression for time features
-                    time_regressor = sklearn.linear_model.LinearRegression()
-                    time_regressor.fit(train_features_time, train_labels)
-                    train_pred_time = time_regressor.predict(train_features_time)
-                    test_pred_time = time_regressor.predict(test_features_time)
-                    train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
-                    test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
-                    train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
-                    test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
+                        # Fit logistic regression for time features
+                        time_regressor = sklearn.linear_model.LogisticRegression()
+                        time_regressor.fit(train_features_time, train_labels)
+                        train_pred_time = time_regressor.predict_proba(train_features_time)[:, 1]
+                        test_pred_time = time_regressor.predict_proba(test_features_time)[:, 1]
+                        train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
+                        test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
+                        train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
+                        test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
+                        train_roc_time = sklearn.metrics.roc_auc_score(train_labels, train_pred_time)
+                        test_roc_time = sklearn.metrics.roc_auc_score(test_labels, test_pred_time)
+                    else:
+                        # Fit linear regression for electrode features
+                        electrode_regressor = sklearn.linear_model.LinearRegression()
+                        electrode_regressor.fit(train_features_electrode, train_labels)
+                        train_pred_electrode = electrode_regressor.predict(train_features_electrode)
+                        test_pred_electrode = electrode_regressor.predict(test_features_electrode)
+                        train_r_squared_electrode = sklearn.metrics.r2_score(train_labels, train_pred_electrode)
+                        test_r_squared_electrode = sklearn.metrics.r2_score(test_labels, test_pred_electrode)
+                        train_r_electrode = np.corrcoef(train_labels, train_pred_electrode)[0, 1]
+                        test_r_electrode = np.corrcoef(test_labels, test_pred_electrode)[0, 1]
 
+                        # Fit linear regression for time features
+                        time_regressor = sklearn.linear_model.LinearRegression()
+                        time_regressor.fit(train_features_time, train_labels)
+                        train_pred_time = time_regressor.predict(train_features_time)
+                        test_pred_time = time_regressor.predict(test_features_time)
+                        train_r_squared_time = sklearn.metrics.r2_score(train_labels, train_pred_time)
+                        test_r_squared_time = sklearn.metrics.r2_score(test_labels, test_pred_time)
+                        train_r_time = np.corrcoef(train_labels, train_pred_time)[0, 1]
+                        test_r_time = np.corrcoef(test_labels, test_pred_time)[0, 1]
 
-                    print(f"Electrode features -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
-                          f"Time features -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
+                    if not training_config['binarize_eval']:
+                        print(f"Electrode -- Train R2: {train_r_squared_electrode:.4f} (R: {train_r_electrode:.4f}) -- Test R2: {test_r_squared_electrode:.4f} (R: {test_r_electrode:.4f}) -- "
+                            f"Time -- Train R2: {train_r_squared_time:.4f} (R: {train_r_time:.4f}) -- Test R2: {test_r_squared_time:.4f} (R: {test_r_time:.4f})")
+                    else:
+                        print(f"Electrode -- Train AUC: {train_roc_electrode:.4f} (R2: {train_r_squared_electrode:.4f}, R: {train_r_electrode:.4f}) -- Test AUC: {test_roc_electrode:.4f} (R2: {test_r_squared_electrode:.4f}, R: {test_r_electrode:.4f}) -- "
+                              f"Time -- Train AUC: {train_roc_time:.4f} (R2: {train_r_squared_time:.4f}, R: {train_r_time:.4f}) -- Test AUC: {test_roc_time:.4f} (R2: {test_r_squared_time:.4f}, R: {test_r_time:.4f})")
 
 
             print(f"Batch {overall_batch_i+1}/{training_config['total_steps']} -- {subject_trial} -- epoch {epoch_i+1}/{training_config['n_epochs']} -- Loss: {loss.item():.4f} -- Avg distance: {avg_distance:.4f} -- GPU mem: {gpu_mem_used:.0f}MB -- Time left: {time_str} -- Current time: {current_time_str}s")
@@ -728,6 +780,12 @@ if __name__ == "__main__":
                     log_dict['eval/test_r_electrode'] = test_r_electrode
                     log_dict['eval/train_r_time'] = train_r_time
                     log_dict['eval/test_r_time'] = test_r_time
+
+                    if training_config['binarize_eval']:
+                        log_dict['eval/train_roc_electrode'] = train_roc_electrode
+                        log_dict['eval/test_roc_electrode'] = test_roc_electrode
+                        log_dict['eval/train_roc_time'] = train_roc_time
+                        log_dict['eval/test_roc_time'] = test_roc_time
                 wandb.log(log_dict, step=overall_batch_i+1, commit=(overall_batch_i+1) % training_config['wandb_commit_every_n_batches'] == 0)#, **loss_per_electrode)
 
             loss_store.append(loss.item())
