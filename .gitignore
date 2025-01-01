@@ -2,9 +2,13 @@ braintreebank/
 braintreebank_zip/
 braintreebank_data_chunks/
 braintreebank_benchmark_data_chunks/
+braintreebank_data_chunks_raw/
+braintreebank_benchmark_data_chunks_raw/
 presentation/
 training_results/
 venv/
+.venv/
 __pycache__/
 training_losses*
 wandb/
+ssh*
