@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=1024G
-#SBATCH -t 10:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-29      # 14 jobs (108/8 rounded up)
+#SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
+#SBATCH --array=0-5      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 
 source .venv/bin/activate
@@ -17,7 +17,7 @@ optimizer_array=('Muon' 'AdamW')
 electrode_init_array=('coordinates_nograd' 'zeros' 'normal')
 dropout_array=(0.0 0.2 0.5)
 batch_size_array=(100 400)
-subjects_array=('123456' '234' '24' '23' '3')
+subjects_array=('1234567890') # '123456' '234' '24' '23' '3')
 lr_array=(0.001 0.0015)
 nl_array=(10 14)
 d_model_array=(192 384)
@@ -54,8 +54,8 @@ for gpu_id in {0..7}; do
     electrode_init_index=$((index / 2 % 2))
     multisubj_eval=$((index / 4 % 2))
     dropout_index=$((index / 8 % 3))
-    subjects_index=$((index / 24 % 5))
-    optimizer_index=$((index / 120 % 2))
+    optimizer_index=$((index / 24 % 2))
+    subjects_index=0
 
     srun --exclusive -n1 --mem=128G --cpu-bind=cores python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
     --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} --test_chunks_interleaved ${test_chunks_interleaved} --multisubj_eval ${multisubj_eval} \
