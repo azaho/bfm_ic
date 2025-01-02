@@ -115,7 +115,7 @@ if __name__ == "__main__":
     parser.add_argument('--laplacian_rereferenced', type=bool, required=False, help='Laplacian rereferenced', default=LAPLACIAN_REREFERENCED)
     parser.add_argument('--max_chunks', type=int, required=False, help='Maximum number of chunks to process', default=None)
     parser.add_argument('--save_to_dir', type=str, required=False, help='Directory to save the data chunks', default="braintreebank_data_chunks")
-    parser.add_argument('--spectrogram', type=int, required=False, help='Whether to use spectrogram features', default=0)
+    parser.add_argument('--spectrogram', type=int, required=False, help='Whether to use spectrogram features', default=1)
     parser.add_argument('--save_plot', type=bool, required=False, help='Whether to save a plot of an example data chunk', default=False)
     args = parser.parse_args()
     sub_id = args.sub_id
