@@ -70,7 +70,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
         if not os.path.exists(save_to_dir):
             os.makedirs(save_to_dir)
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{window_from//window_length}.npy', data_chunk)
-        if verbose: print(f"Saved chunk {window_from//window_length}")
+        if verbose: print(f"Saved chunk {window_from//window_length} of shape {data_chunk.shape}")
 
     # Save a plot of an example data chunk
     n_electrodes = data_chunk.shape[0]
