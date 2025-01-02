@@ -367,7 +367,7 @@ class BrainTreebankSubjectTrialDataLoader:
         self.total_samples = self.metadata['total_samples']
         self.n_chunks = self.metadata['n_chunks']
         self.laplacian_rereferenced = self.metadata['laplacian_rereferenced']
-        self.n_freq_features = self.metadata.get('n_freq_features', transformer_config['n_freq_features'])
+        self.n_freq_features = transformer_config['n_freq_features']
 
         # Train/test split
         self.test_chunk_ids = np.random.choice(
@@ -409,9 +409,7 @@ class BrainTreebankSubjectTrialDataLoader:
             # Load the chunk from disk
             chunk_data = np.load(chunk_path)
             chunk_data = torch.from_numpy(chunk_data) # shape: (n_electrodes, n_time_bins, n_freq_features)
-            print(chunk_data.shape)
             chunk_data = chunk_data[:, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
-            print(chunk_data.shape)
             
             # Reshape into (1, n_electrodes, #windows, max_n_time_bins, n_freq_features)
             chunk_data = chunk_data.unsqueeze(0).reshape(
