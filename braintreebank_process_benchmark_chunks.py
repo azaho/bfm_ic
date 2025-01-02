@@ -129,9 +129,8 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
             else:
                 mean, std = subject.get_electrode_data_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=True)
             normalizing_params[electrode_label] = (mean, std)
-            assert std != 0 and not np.isnan(std), f"Invalid std={std} found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
-            assert not np.any(std == 0), f"Zero std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
-            assert not np.any(np.isnan(std)), f"NaN std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
+            assert not np.any(std == 0), f"Zero std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}: {std}"
+            assert not np.any(np.isnan(std)), f"NaN std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}: {std}"
         if verbose: print("Normalizing parameters computed")
 
     n_chunks = len(words_df) // chunk_batch_size
