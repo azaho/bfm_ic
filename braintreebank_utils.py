@@ -142,7 +142,7 @@ class Subject:
     def get_spectrogram(self, electrode_label, trial_id, window_from=None, window_to=None, 
                         normalizing_params=None, laplacian_rereferenced=False, return_power=True, 
                         normalize_per_freq=False, cache=True, nperseg=256, noverlap=0, power_smoothing_factor=1e-5,
-                        min_freq=8, max_freq=300):
+                        min_freq=None, max_freq=None):
         if laplacian_rereferenced: 
             data = self.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, cache=cache, window_from=window_from, window_to=window_to)
         else: data = self.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=cache)

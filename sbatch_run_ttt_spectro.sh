@@ -6,7 +6,7 @@
 #SBATCH --mem=1024G
 #SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-8      # 14 jobs (108/8 rounded up)
-#SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
+#SBATCH --output /shared/anzah/bfm_ic/r/%A_%a.out # STDOUT
 
 source .venv/bin/activate
 
