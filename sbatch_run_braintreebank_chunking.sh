@@ -10,10 +10,10 @@ source .venv/bin/activate
 export HDF5_USE_FILE_LOCKING=FALSE
 
 spectrogram_string=('--spectrogram 0 --save_to_dir braintreebank_data_chunks_raw' '--spectrogram 1 --save_to_dir braintreebank_data_chunks')
-sub_id = $(((SLURM_ARRAY_TASK_ID % 10)+1))
-spectrogram_id = $((SLURM_ARRAY_TASK_ID / 10))
+sub_id=$(((SLURM_ARRAY_TASK_ID % 10)+1))
+spectrogram_id=$((SLURM_ARRAY_TASK_ID / 10))
 
 echo "sub_id: $sub_id"
 echo "spectrogram_id: $spectrogram_id"
 
-python braintreebank_process_chunks.py --sub_id $sub_id $spectrogram_string[$spectrogram_id]
+python braintreebank_process_chunks.py --sub_id $sub_id ${spectrogram_string[spectrogram_id]}
