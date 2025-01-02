@@ -129,7 +129,9 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
             else:
                 mean, std = subject.get_electrode_data_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=True)
             normalizing_params[electrode_label] = (mean, std)
-            #print(f"Normalizing params for {electrode_label}: mean={mean}, std={std}")
+            assert std != 0 and not np.isnan(std), f"Invalid std={std} found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
+            assert not np.any(std == 0), f"Zero std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
+            assert not np.any(np.isnan(std)), f"NaN std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}"
         if verbose: print("Normalizing parameters computed")
 
     n_chunks = len(words_df) // chunk_batch_size
@@ -157,6 +159,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                         data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = (data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
                     else:
                         data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] = (data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :] - np.mean(data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :]).item()) / np.std(data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :]).item()
+                assert not np.any(np.isnan(data_chunk[word_i-chunk_i*chunk_batch_size, i, :, :])), f"NaN values found in data chunk for subject {sub_id}, electrode {electrode_label}, trial {trial_id}, word {word_i}, chunk {chunk_i}"
         chunk_words_df.to_csv(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.csv', index=False)
         np.save(f'{save_to_dir}/subject{sub_id}_trial{trial_id}_chunk{chunk_i}.npy', data_chunk)
         if verbose: print(f"Saved chunk {chunk_i} (shape: {data_chunk.shape})")

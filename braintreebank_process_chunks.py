@@ -35,6 +35,8 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
             else:
                 mean, std = subject.get_electrode_data_normalizing_params(electrode_label, trial_id, laplacian_rereferenced=laplacian_rereferenced, cache=True)
             normalizing_params[electrode_label] = (mean, std)
+            assert not np.any(std == 0), f"Zero std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}: {std}"
+            assert not np.any(np.isnan(std)), f"NaN std found for electrode {electrode_label}, subject {sub_id}, trial {trial_id}: {std}"
             #print(f"Normalizing params for {electrode_label}: mean={mean}, std={std}")
         if verbose: print("Normalizing parameters computed")
 
@@ -63,6 +65,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
                     data_chunk[i, :, :] = (data_chunk[i, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
                 else:
                     data_chunk[i, :, :] = (data_chunk[i, :, :] - np.mean(data_chunk[i, :, :]).item()) / np.std(data_chunk[i, :, :]).item()
+        assert not np.any(np.isnan(data_chunk)), f"NaN values found in data chunk for subject {sub_id}, trial {trial_id}, chunk {window_from//window_length}"
         #print(data_chunk)
         if not os.path.exists(save_to_dir):
             os.makedirs(save_to_dir)

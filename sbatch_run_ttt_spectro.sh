@@ -23,7 +23,7 @@ nl_array=(10)
 d_model_array=(192)
 random_string_array=('X')
 wd_array=(0 0.0001)
-n_freq_features_array=(37 64 129)
+n_freq_features_array=(37 64 128)
 # Fixed parameters
 max_gradient_norm=-1
 dtype_index=0
