@@ -39,6 +39,7 @@ args.temp_clip_param = 1
 args.test_chunks_interleaved = 0
 args.multisubj_eval = 0
 args.n_freq_features = SPECTROGRAM_DIMENSIONALITY if args.spectrogram else 256
+args.symmetric_loss = 0
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -65,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_chunks_interleaved', type=int, default=args.test_chunks_interleaved, help='Test chunks interleaved')
     parser.add_argument('--multisubj_eval', type=int, default=args.multisubj_eval, help='Multisubject evaluation')
     parser.add_argument('--n_freq_features', type=int, default=args.n_freq_features, help='Number of frequency features')
+    parser.add_argument('--symmetric_loss', type=int, default=args.symmetric_loss, help='Symmetric loss')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -107,6 +109,7 @@ training_config = {
     'temp_clip_param': args.temp_clip_param==1,
     'test_chunks_interleaved': args.test_chunks_interleaved==1,
     'multisubj_eval': args.multisubj_eval==1,
+    'symmetric_loss': args.symmetric_loss==1,
 }
 assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_config), "Need to specify either lr_warmup_frac or lr_warmup_steps, not both"
 wandb_log = (len(args.wandb_project) > 0)
@@ -406,7 +409,9 @@ class BrainTreebankSubjectTrialDataLoader:
             # Load the chunk from disk
             chunk_data = np.load(chunk_path)
             chunk_data = torch.from_numpy(chunk_data) # shape: (n_electrodes, n_time_bins, n_freq_features)
+            print(chunk_data.shape)
             chunk_data = chunk_data[:, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
+            print(chunk_data.shape)
             
             # Reshape into (1, n_electrodes, #windows, max_n_time_bins, n_freq_features)
             chunk_data = chunk_data.unsqueeze(0).reshape(
@@ -876,6 +881,9 @@ if __name__ == "__main__":
             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
             expanded_arange_electrode = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-2, 1).to(device, dtype=torch.long).reshape(-1)
             loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+            if training_config['symmetric_loss']:
+                loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+                loss /= 2
             #loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
             #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
@@ -948,6 +956,9 @@ if __name__ == "__main__":
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
                             expanded_arange_electrode = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-2, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
+                            if training_config['symmetric_loss']:
+                                test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
+                                test_loss /= 2
                             #test_loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
                             #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
@@ -1141,24 +1152,24 @@ if __name__ == "__main__":
                 if overall_test_loss is not None:
                     log_dict['test_loss'] = overall_test_loss
                 if to_save_eval:
-                    log_dict['eval/train_r2_electrode'] = train_r_squared_electrode
-                    log_dict['eval/test_r2_electrode'] = test_r_squared_electrode
-                    log_dict['eval/train_r2_time'] = train_r_squared_time
-                    log_dict['eval/test_r2_time'] = test_r_squared_time
+                    # log_dict['eval/train_r2_electrode'] = train_r_squared_electrode
+                    # log_dict['eval/test_r2_electrode'] = test_r_squared_electrode
+                    # log_dict['eval/train_r2_time'] = train_r_squared_time
+                    # log_dict['eval/test_r2_time'] = test_r_squared_time
 
-                    log_dict['eval/train_r_electrode'] = train_r_electrode
-                    log_dict['eval/test_r_electrode'] = test_r_electrode
-                    log_dict['eval/train_r_time'] = train_r_time
-                    log_dict['eval/test_r_time'] = test_r_time
+                    # log_dict['eval/train_r_electrode'] = train_r_electrode
+                    # log_dict['eval/test_r_electrode'] = test_r_electrode
+                    # log_dict['eval/train_r_time'] = train_r_time
+                    # log_dict['eval/test_r_time'] = test_r_time
 
                     if training_config['binarize_eval']:
-                        log_dict['eval/train_roc_electrode'] = train_roc_electrode
+                        #log_dict['eval/train_roc_electrode'] = train_roc_electrode
                         log_dict['eval/test_roc_electrode'] = test_roc_electrode
-                        log_dict['eval/train_roc_time'] = train_roc_time
+                        #log_dict['eval/train_roc_time'] = train_roc_time
                         log_dict['eval/test_roc_time'] = test_roc_time
-                        log_dict['eval/train_acc_electrode'] = train_acc_electrode
+                        #log_dict['eval/train_acc_electrode'] = train_acc_electrode
                         log_dict['eval/test_acc_electrode'] = test_acc_electrode
-                        log_dict['eval/train_acc_time'] = train_acc_time
+                        #log_dict['eval/train_acc_time'] = train_acc_time
                         log_dict['eval/test_acc_time'] = test_acc_time
                 wandb.log(log_dict, step=overall_batch_i+1, commit=(overall_batch_i+1) % training_config['wandb_commit_every_n_batches'] == 0)#, **loss_per_electrode)
 

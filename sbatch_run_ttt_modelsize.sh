@@ -5,7 +5,7 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=1024G
 #SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-8      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-26      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/r/%A_%a.out # STDOUT
 
 source .venv/bin/activate
@@ -19,8 +19,8 @@ dropout_array=(0.0 0.2 0.4)
 batch_size_array=(100)
 subjects_array=('3') # '123456' '234' '24' '23' '3')
 lr_array=(0.001 0.0015)
-nl_array=(10)
-d_model_array=(192)
+nl_array=(10 12 14)
+d_model_array=(192 216 240)
 random_string_array=('X')
 wd_array=(0 0.0001)
 n_freq_features_array=(37 64 128)
@@ -32,14 +32,13 @@ electrode_init_index=0
 filename_index=0
 random_string_index=0
 wd_index=0
-nl_index=0
-d_model_index=$((nl_index))
 subjects_index=0
 
 spectrogram=1
 binarize_eval=1
 temp_clip_param=1
 test_chunks_interleaved=0
+n_freq_features_index=0
 multisubj_eval=0
 
 # Calculate base index for this job
@@ -54,7 +53,8 @@ for gpu_id in {0..7}; do
     electrode_init_index=$((index / 2 % 2))
     optimizer_index=$((index / 4 % 2))
     dropout_index=$((index / 8 % 3))
-    n_freq_features_index=$((index / 24 % 3))
+    nl_index=$((index / 24 % 3))
+    d_model_index=$((index / 72 % 3))
 
     srun --exclusive -n1 --mem=128G --cpu-bind=cores python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
     --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} --test_chunks_interleaved ${test_chunks_interleaved} --multisubj_eval ${multisubj_eval} \

@@ -5,7 +5,7 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=1024G
 #SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=0-8      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-5      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/r/%A_%a.out # STDOUT
 
 source .venv/bin/activate
@@ -54,13 +54,15 @@ for gpu_id in {0..7}; do
     electrode_init_index=$((index / 2 % 2))
     optimizer_index=$((index / 4 % 2))
     dropout_index=$((index / 8 % 3))
-    n_freq_features_index=$((index / 24 % 3))
+    n_freq_features_index=0
+    symmetric_loss_index=$((index / 24 % 2))
 
     srun --exclusive -n1 --mem=128G --cpu-bind=cores python ${filename_array[filename_index]} --dtype ${dtype_array[dtype_index]} --optimizer ${optimizer_array[optimizer_index]} \
     --spectrogram ${spectrogram} --binarize_eval ${binarize_eval} --temp_clip_param ${temp_clip_param} --test_chunks_interleaved ${test_chunks_interleaved} --multisubj_eval ${multisubj_eval} \
     --electrode_embedding_init ${electrode_init_array[electrode_init_index]} --dr ${dropout_array[dropout_index]} --dm ${d_model_array[d_model_index]} --n_freq_features ${n_freq_features_array[n_freq_features_index]} \
     --bs ${batch_size_array[batch_size_index]} --lrmax ${lr_array[lr_index]} --lrmin ${lr_array[lr_index]} --weight_decay ${wd_array[wd_index]} --max_gradient_norm $max_gradient_norm \
-    --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfbofa3 --nl ${nl_array[nl_index]} &
+    --subjects ${subjects_array[subjects_index]} --wait_n_intervals $index --wandb_project bfm --rs ${random_string_array[random_string_index]} --wandb_project bfbofa3 --nl ${nl_array[nl_index]} \
+    --symmetric_loss ${symmetric_loss_index} &
 done
 
 wait # Wait for all parallel processes to complete
