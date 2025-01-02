@@ -156,6 +156,9 @@ def update_dir_name():
     #     dir_name += f"_ti"
     if training_config['multisubj_eval']:
         dir_name += f"_me"
+    if training_config['symmetric_loss']:
+        dir_name += f"_sl"
+    dir_name += f"_nff{transformer_config['n_freq_features']}"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
     dir_name += f"_dm{transformer_config['d_model']}"

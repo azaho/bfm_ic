@@ -3,7 +3,7 @@
 #SBATCH --ntasks=8             # 8 tasks total
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
 #SBATCH --gpus-per-task=1
-#SBATCH --mem=1024G
+#SBATCH --mem-per-task=128G
 #SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-26      # 14 jobs (108/8 rounded up)
 #SBATCH --output /shared/anzah/bfm_ic/r/%A_%a.out # STDOUT
@@ -21,7 +21,7 @@ subjects_array=('3') # '123456' '234' '24' '23' '3')
 lr_array=(0.001 0.0015)
 nl_array=(10 12 14)
 d_model_array=(192 216 240)
-random_string_array=('K')
+random_string_array=('MSIZE')
 wd_array=(0 0.0001)
 n_freq_features_array=(37 64 128)
 # Fixed parameters
