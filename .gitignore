@@ -12,3 +12,4 @@ __pycache__/
 training_losses*
 wandb/
 ssh*
+reports/

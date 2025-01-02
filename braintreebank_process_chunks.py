@@ -46,7 +46,7 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     for window_from in windows_range:
         window_to = window_from + window_length
         if spectrogram:
-            data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, 37), dtype=np.float32)
+            data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, SPECTROGRAM_DIMENSIONALITY), dtype=np.float32)
             for i, electrode_label in enumerate(electrode_labels):
                 f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, 
                                                     normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=True,

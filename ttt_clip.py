@@ -326,10 +326,6 @@ class BrainTreebankSubjectTrialDataLoader_old:
         return (len(self.train_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
     def test_length(self, batch_size):
         return (len(self.test_chunk_ids)-1)*(self.n_time_bins//transformer_config['max_n_time_bins'])//batch_size
-    
-import json
-import numpy as np
-import torch
 
 class BrainTreebankSubjectTrialDataLoader:
     def __init__(
@@ -406,7 +402,8 @@ class BrainTreebankSubjectTrialDataLoader:
             )
             # Load the chunk from disk
             chunk_data = np.load(chunk_path)
-            chunk_data = torch.from_numpy(chunk_data)
+            chunk_data = torch.from_numpy(chunk_data) # shape: (n_electrodes, n_time_bins, n_freq_features)
+            chunk_data = chunk_data[:, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
             
             # Reshape into (1, n_electrodes, #windows, max_n_time_bins, n_freq_features)
             chunk_data = chunk_data.unsqueeze(0).reshape(
@@ -438,7 +435,8 @@ class BrainTreebankSubjectTrialDataLoader:
                 f"braintreebank_data_chunks{'_raw' if not self.spectrogram else ''}/"
                 f"subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
             )
-            chunk_data = torch.from_numpy(np.load(chunk_path))
+            chunk_data = torch.from_numpy(np.load(chunk_path)) # shape: (n_electrodes, n_time_bins, n_freq_features)
+            chunk_data = chunk_data[:, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
             chunk_data = chunk_data.unsqueeze(0).reshape(
                 1,
                 self.n_electrodes,
@@ -683,7 +681,8 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         self.spectrogram = spectrogram
         self.percentiles = percentiles
         self.binarize = binarize
-
+        self.n_freq_features = transformer_config['n_freq_features']
+        
         all_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
         self.words_df = pd.read_csv(all_path)
         self.n_chunks = len(self.words_df) // 100
@@ -710,7 +709,9 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         if self.cache_in_memory and chunk_id in self.cache_input:
             return self.cache_input[chunk_id]
         chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
-        chunk_data = torch.from_numpy(np.load(chunk_path)).to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
+        chunk_data = torch.from_numpy(np.load(chunk_path)) # shape: (n_chunks, n_electrodes, n_time_bins, n_freq_features)
+        chunk_data = chunk_data[:, :, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
+        chunk_data = chunk_data.to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         if permutation is not None:
             chunk_data = chunk_data[:, permutation, :, :]
         if self.cache_in_memory:

@@ -5,6 +5,7 @@
 ROOT_DIR = "" # "" usually
 # Sampling rate
 SAMPLING_RATE = 2048
+SPECTROGRAM_DIMENSIONALITY = 129 # number of frequency bins in the spectrogram
 
 # Laplacian rereferencing of electrodes before processing
 LAPLACIAN_REREFERENCED = False

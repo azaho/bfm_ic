@@ -137,7 +137,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     if verbose: print(f"Processing subject {sub_id} trial {trial_id} ({len(words_df)} words, {n_chunks} chunks)")
     for chunk_i in range(n_chunks):
         chunk_words_df = words_df[chunk_i*chunk_batch_size:(chunk_i+1)*chunk_batch_size]
-        data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
+        data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, SPECTROGRAM_DIMENSIONALITY if spectrogram else nperseg), dtype=np.float32)
         for word_i, row in chunk_words_df.iterrows():
             window_start_sample = int(row[est_idx_col] - start_data_before_onset * SAMPLING_RATE)
             window_end_sample = int(row[est_idx_col] + end_data_after_onset * SAMPLING_RATE)
@@ -165,7 +165,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     # Process gaps between words
     if verbose: print("Processing gaps between words...")
     
-    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
+    gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, SPECTROGRAM_DIMENSIONALITY if spectrogram else nperseg), dtype=np.float32)
     gap_chunk_count = 0
     gap_chunk_num = 0
 
@@ -219,7 +219,7 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                 # Reset for next chunk
                 gap_chunk_num += 1
                 gap_chunk_count = 0
-                gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, 37 if spectrogram else nperseg), dtype=np.float32)
+                gap_data_chunk = np.zeros((chunk_batch_size, n_electrodes, window_length // nperseg, SPECTROGRAM_DIMENSIONALITY if spectrogram else nperseg), dtype=np.float32)
 
     subject.close_all_files()
     del subject
