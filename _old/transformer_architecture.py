@@ -16,63 +16,46 @@ transformer_config = {
 }
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 
-class ElectrodeTransformer(nn.Module):
-    def __init__(self, device=None, config=transformer_config):
+class SEEGTransformer(nn.Module):
+    def __init__(self, device=None,config=transformer_config):
         super().__init__()
         self.config = config
-        self.dtype = config.get('dtype', torch.bfloat16)  
-        self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.dtype = config.get('dtype', torch.bfloat16)  # Changed default to bfloat16
+        self.device = device
 
-        self.electrode_mask = self._make_electrode_mask()
-        self.cls_token = nn.Parameter(torch.randn(config['d_model']) / config['d_model'] ** 0.5)
+        # Precompute masks and RoPE
+        self.causal_mask = self._make_causal_mask()
+        self.electrode_mask, self.electrode_time_mask = self._make_electrode_mask()
+        self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos = self._precompute_rope_qk()
+        self.precomputed_masks = (self.causal_mask, self.electrode_mask, self.electrode_time_mask, self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos)
+
+        # Project frequency features to model dimension
         self.freq_projection = nn.Linear(config['n_freq_features'], config['d_model'])
-        self.transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=config['d_model'], dim_feedforward=config['d_model']*4, nhead=config['n_heads'],
-                                                                    batch_first=True, norm_first=True, dropout=config['dropout'], activation="relu")
-        self.transformer_encoder = nn.TransformerEncoder(self.transformer_encoder_layer, num_layers=config['n_layers']//2)
-    
+        # Custom transformer encoder that applies RoPE in each layer
+        self.layers = nn.ModuleList([
+            RoPETransformerEncoderLayer(self.precomputed_masks, config=config)
+            for _ in range(config['n_layers'])
+        ] + [
+            nn.Linear(config['d_model'], config['dim_output']) # output layer to transform to 1D Energy output
+        ])
+
     def forward(self, x, electrode_emb):
         # x shape: (batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features)
         # electrode_emb shape: (n_electrodes, d_model)
-
+        #x = x.to(dtype=self.dtype)
+        #electrode_emb = electrode_emb.to(dtype=self.dtype)
+        
         batch_size, n_samples, n_electrodes, n_time_bins, n_freq_features = x.shape
-        #x = x.permute(0, 1, 3, 2, 4) # (batch_size, n_samples, n_time_bins, n_electrodes, n_freq_features)
-        x = x.transpose(3, 2) # (batch_size, n_samples, n_time_bins, n_electrodes, n_freq_features)
-        x = x.reshape(-1, n_electrodes, n_freq_features) # (batch_size*n_samples*n_time_bins, n_electrodes, n_freq_features)
-        # TODO: fix those reshapes for efficiency
-
-        x = self.freq_projection(x) # (batch_size*n_samples*n_time_bins, n_electrodes, d_model)
-        x = x + electrode_emb.unsqueeze(0)
-        # Add CLS token to sequence
-        cls_tokens = self.cls_token.unsqueeze(0).expand(x.size(0), -1).unsqueeze(1)  # (batch_size*n_samples*n_time_bins, 1, d_model)
-        x = torch.cat([cls_tokens, x], dim=1)  # (batch_size*n_samples*n_time_bins, n_electrodes+1, d_model)
-        x = self.transformer_encoder(x)
-
-        # TODO: fix this, permuting twice is not efficient back and forth
-        x = x.reshape(batch_size, n_samples, n_time_bins, n_electrodes+1, self.config['d_model'])
-        x = x.transpose(3, 2) # (batch_size, n_samples, n_electrodes+1, n_time_bins, d_model)
+        # Project frequency features
+        x = self.freq_projection(x)
+        # Add electrode embeddings
+        electrode_emb_unsqueezed = electrode_emb.unsqueeze(1).unsqueeze(0).unsqueeze(0)
+        x = x + electrode_emb_unsqueezed # x.shape: (batch_size, n_samples, n_electrodes, n_time_bins, d_model)
+        # Pass through transformer layers with RoPE applied in each layer
+        for layer in self.layers:
+            x = layer(x)
         return x
     
-    def _make_electrode_mask(self):
-        return None
-    
-class TimeTransformer(nn.Module):
-    def __init__(self, device=None, config=transformer_config):
-        super().__init__()
-        self.config = config
-        self.dtype = config.get('dtype', torch.bfloat16) 
-        self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        self.causal_mask = self._make_causal_mask()
-        self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos = self._precompute_rope_qk()
-        self.precomputed_masks = (self.causal_mask, self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos) 
-
-        self.layers = nn.ModuleList([
-            RoPETransformerEncoderLayer(self.precomputed_masks, config=config)
-            for _ in range(config['n_layers']//2)
-        ] + [
-            nn.Linear(config['d_model'], config['dim_output']) # output layer to transform to 1D Energy output
-        ])  
-
     def _precompute_rope_qk(self):
         d_head = self.config['d_model'] // self.config['n_heads']
         theta = self.config['rope_encoding_scale'] ** (-torch.arange(0, d_head//2, 2, dtype=self.dtype, device=self.device) / d_head//2)
@@ -85,13 +68,21 @@ class TimeTransformer(nn.Module):
         # causal_mask shape: (seq_len, seq_len) with True for disallowed positions
         causal_mask = torch.triu(torch.ones(self.config['max_n_time_bins'], self.config['max_n_time_bins'], dtype=torch.bool, device=self.device), diagonal=1)
         return causal_mask
-    
-    def forward(self, x):
-        # x shape: (batch_size, n_samples, n_electrodes, n_time_bins, d_model)
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
+    def _make_electrode_mask(self):
+        # electrode_mask shape: (n_electrodes, n_electrodes) True on diagonal (same electrode)
+        indices = torch.arange(self.config['max_n_electrodes'], device=self.device)
+        if self.config['mask_type'] == 'mask-out-one':
+            electrode_mask = (indices.unsqueeze(0) == indices.unsqueeze(1))
+            electrode_time_mask = torch.ones((self.config['max_n_time_bins'], self.config['max_n_time_bins']), dtype=torch.bool, device=self.device)
+        elif self.config['mask_type'] == 'mask-out-all-lower-id':
+            electrode_mask = (indices.unsqueeze(0) >= indices.unsqueeze(1))
+            electrode_time_mask = torch.ones((self.config['max_n_time_bins'], self.config['max_n_time_bins']), dtype=torch.bool, device=self.device)
+        elif self.config['mask_type'] == 'mask-out-none':
+            electrode_mask = torch.zeros_like(indices.unsqueeze(0) >= indices.unsqueeze(1), dtype=torch.bool, device=self.device)
+            electrode_time_mask = torch.eye(self.config['max_n_time_bins'], dtype=torch.bool, device=self.device)
+        else:
+            raise ValueError(f"Invalid mask type: {self.mask_type}")
+        return electrode_mask, electrode_time_mask
 
 class RoPETransformerEncoderLayer(nn.Module):
     def __init__(self, precomputed_masks, config=transformer_config):
@@ -128,7 +119,7 @@ class RoPEMultiheadAttention(nn.Module):
         super().__init__()
         self.config = config
         self.dtype = config.get('dtype', torch.bfloat16)  # Changed default to bfloat16
-        self.causal_mask, self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos = precomputed_masks
+        self.causal_mask, self.electrode_mask, self.electrode_time_mask, self.pos_enc_unsqueezed_sin, self.pos_enc_unsqueezed_cos = precomputed_masks
         self.d_model = config['d_model']
         self.nhead = config['n_heads']
         self.dropout = config['dropout']
@@ -187,7 +178,12 @@ class RoPEMultiheadAttention(nn.Module):
                          n_samples_k, n_electrodes, n_time_bins)
         
         causal_mask = self.causal_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
-        combined_mask = causal_mask 
+        electrode_time_mask = self.electrode_time_mask[None, None, :n_time_bins, None, None, :n_time_bins]  # shape: (1,1,n_time_bins,1,1,n_time_bins)
+        electrode_mask = self.electrode_mask[None, :n_electrodes, None, None, :n_electrodes, None]  # (1, n_electrodes, 1, 1, n_electrodes, 1)
+        #print(causal_mask.device, electrode_mask.device, electrode_time_mask.device)
+        electrode_mask = electrode_mask & electrode_time_mask  # Broadcasting will handle expansion
+
+        combined_mask = causal_mask | electrode_mask  # relies on broadcasting
         # combined_mask shape now effectively: (1, n_electrodes, n_time_bins, 1, n_electrodes, n_time_bins)
         combined_mask = combined_mask.expand(n_samples_q, n_electrodes, n_time_bins, n_samples_k, n_electrodes, n_time_bins)
         combined_mask = combined_mask.unsqueeze(0).unsqueeze(0)  # (1,1,n_samples_q,n_electrodes,n_time_bins,n_samples_k,n_electrodes,n_time_bins)
