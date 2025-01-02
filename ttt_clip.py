@@ -1,11 +1,12 @@
 import torch, numpy as np, json, os, time
-from transformer_architecture_cpc import ElectrodeTransformer, TimeTransformer
+from transformer_architecture import ElectrodeTransformer, TimeTransformer
 from braintreebank_utils import Subject
 import argparse
 import wandb
 import pandas as pd
 from scipy import stats
 import sklearn
+from braintreebank_config import SPECTROGRAM_DIMENSIONALITY
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -22,7 +23,7 @@ args.dm = 192
 args.mt = 'mask-out-none'
 args.dtype = 'bfloat16'
 args.nh = 12
-args.dr = 0.4
+args.dr = 0.2
 args.rs = "" 
 args.lrwm = 0
 args.wait_n_intervals = 0
@@ -31,12 +32,13 @@ args.optimizer = 'Muon'
 args.max_gradient_norm = -1
 args.electrode_embedding_init = 'normal'
 args.wandb_project = "bfm_clip_bofa"
-args.subjects = "23"
+args.subjects = "3"
 args.spectrogram = 1
 args.binarize_eval = 1
 args.temp_clip_param = 1
 args.test_chunks_interleaved = 0
 args.multisubj_eval = 0
+args.n_freq_features = SPECTROGRAM_DIMENSIONALITY if args.spectrogram else 256
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lrmax', type=float, default=args.lrmax, help='Maximum learning rate')
@@ -62,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--temp_clip_param', type=int, default=args.temp_clip_param, help='Use temperature clip parameter')
     parser.add_argument('--test_chunks_interleaved', type=int, default=args.test_chunks_interleaved, help='Test chunks interleaved')
     parser.add_argument('--multisubj_eval', type=int, default=args.multisubj_eval, help='Multisubject evaluation')
+    parser.add_argument('--n_freq_features', type=int, default=args.n_freq_features, help='Number of frequency features')
     args = parser.parse_args()
     assert args.lrmax >= args.lrmin, "Maximum learning rate must be greater than or equal to minimum learning rate"
     assert args.subjects.isdigit() or args.subjects == "", "Subjects parameter must contain only numbers and commas"
@@ -111,7 +114,7 @@ wandb_log = (len(args.wandb_project) > 0)
 transformer_config = {
     'model_name': "tOOD2", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon) #XXX
     'max_n_electrodes': 158,#158,
-    'n_freq_features': 37 if args.spectrogram else 256,
+    'n_freq_features': args.n_freq_features,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
     'd_model': args.dm,
     'n_heads': args.nh,
@@ -142,12 +145,12 @@ def update_dir_name():
     dir_name = f"training_results/{transformer_config['model_name']}"
     if not transformer_config['spectrogram']:
         dir_name += f"_ns"
-    if training_config['binarize_eval']:
-        dir_name += f"_be"
-    if training_config['temp_clip_param']:
-        dir_name += f"_tc"
-    if training_config['test_chunks_interleaved']:
-        dir_name += f"_ti"
+    # if training_config['binarize_eval']:
+    #     dir_name += f"_be"
+    # if training_config['temp_clip_param']:
+    #     dir_name += f"_tc"
+    # if training_config['test_chunks_interleaved']:
+    #     dir_name += f"_ti"
     if training_config['multisubj_eval']:
         dir_name += f"_me"
     dir_name += f"_s{args.subjects}"
@@ -682,7 +685,7 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
         self.percentiles = percentiles
         self.binarize = binarize
         self.n_freq_features = transformer_config['n_freq_features']
-        
+
         all_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_words_df.csv"
         self.words_df = pd.read_csv(all_path)
         self.n_chunks = len(self.words_df) // 100

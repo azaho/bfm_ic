@@ -118,9 +118,6 @@ class Subject:
             row = regions_df[regions_df['Electrode'] == label].iloc[0]
             coordinates[i] = [row['L'], row['I'], row['P']]
         return coordinates
-    
-    def clear_neural_data_cache(self, trial_id):
-        self.neural_data_cache[trial_id] = {}
 
     def get_electrode_data(self, electrode_label, trial_id, window_from=None, window_to=None, cache=True):
         """
@@ -178,7 +175,9 @@ class Subject:
     def close_all_files(self):
         for h5f in self.h5f_files.values():
             h5f.close()
-        self.clear_neural_data_cache()
+        self.neural_data = {}
+        self.neural_data_cache = {}
+        self.h5f_files = {}
 
 if __name__ == "__main__":
     # all subject trials including the special case for subject 6 which only has trials 0, 1, and 4

@@ -3,18 +3,17 @@
 #SBATCH -n 1                # node count
 #SBATCH --mem-per-cpu=64G    # memory per cpu-core
 #SBATCH -t 8:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=1-10       # 2000 total combinations (4*5*4*5*5)
+#SBATCH --array=0-19       # 2000 total combinations (4*5*4*5*5)
 #SBATCH --output /shared/anzah/bfm_ic/reports/%A_%a.out # STDOUT
 
 source .venv/bin/activate
 export HDF5_USE_FILE_LOCKING=FALSE
 
-# Define arrays for each hyperparameter
-#n_top_pc_llm_array=(100 400 800 -1)
-#weight_decay_array=(0.0 0.001 0.005 0.01 0.02)
-# Calculate indices for each hyperparameter
-#index=$SLURM_ARRAY_TASK_ID
-#n_top_pc_llm_index=$((index % 4))
+spectrogram_string=('--spectrogram 0 --save_to_dir braintreebank_benchmark_data_chunks_raw' '--spectrogram 1 --save_to_dir braintreebank_benchmark_data_chunks')
+sub_id = $((SLURM_ARRAY_TASK_ID % 10)+1)
+spectrogram_id = $((SLURM_ARRAY_TASK_ID / 10))
 
-python braintreebank_process_benchmark_chunks.py --sub_id $SLURM_ARRAY_TASK_ID  --spectrogram 0 --save_to_dir braintreebank_benchmark_data_chunks_raw
-# --save_to_dir /om/user/zaho/bfm_ic/btb_data_chunks_new
+echo "sub_id: $sub_id"
+echo "spectrogram_id: $spectrogram_id"
+
+python braintreebank_process_benchmark_chunks.py --sub_id $sub_id $spectrogram_string[$spectrogram_id]
