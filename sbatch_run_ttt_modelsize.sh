@@ -21,7 +21,7 @@ subjects_array=('3') # '123456' '234' '24' '23' '3')
 lr_array=(0.001 0.0015)
 nl_array=(10 12 14)
 d_model_array=(192 216 240)
-random_string_array=('X')
+random_string_array=('K')
 wd_array=(0 0.0001)
 n_freq_features_array=(37 64 128)
 # Fixed parameters
