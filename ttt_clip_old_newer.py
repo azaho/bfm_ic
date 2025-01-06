@@ -6,7 +6,7 @@ import wandb
 import pandas as pd
 from scipy import stats
 import sklearn
-from braintreebank_config import *
+from braintreebank_config import SPECTROGRAM_DIMENSIONALITY, BENCHMARK_START_DATA_BEFORE_ONSET, BENCHMARK_END_DATA_AFTER_ONSET, BENCHMARK_PADDING_TIME, SAMPLING_RATE, N_PER_SEG
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -15,8 +15,8 @@ print(f"Using device: {device}")
 all_subject_trials = [(1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 0), (3, 1), (3, 2), (4, 0), (4, 1), (4, 2), (5, 0), (6, 0), (6, 1), (6, 4), (7, 0), (7, 1), (8, 0), (9, 0), (10, 0), (10, 1)]
 
 args = argparse.Namespace()
-args.lrmax = 0.0015
-args.lrmin = 0.0015
+args.lrmax = 0.001
+args.lrmin = 0.001
 args.bs = 100
 args.nl = 10
 args.dm = 192
@@ -38,7 +38,7 @@ args.binarize_eval = 1
 args.temp_clip_param = 1
 args.test_chunks_interleaved = 0
 args.multisubj_eval = 0
-args.n_freq_features = 37 #XXX #SPECTROGRAM_DIMENSIONALITY if args.spectrogram else 256
+args.n_freq_features = 64  #SPECTROGRAM_DIMENSIONALITY if args.spectrogram else 256
 args.symmetric_loss = 0
 args.two_views_split = 1
 args.two_views_split_eval = 1
@@ -121,7 +121,7 @@ assert ('lr_warmup_frac' in training_config) != ('lr_warmup_steps' in training_c
 wandb_log = (len(args.wandb_project) > 0)
 
 transformer_config = {
-    'model_name': "tNM", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon) #XXX
+    'model_name': "tOOD2", # x is for loss addon, c is default clip, t is for testing deep fine tuning (no loss addon) #XXX
     'max_n_electrodes': 158,#158,
     'n_freq_features': args.n_freq_features,
     'max_n_time_bins': 24, # 3 second of time (every bin is 125 ms)
@@ -137,8 +137,6 @@ transformer_config = {
 
     'spectrogram': args.spectrogram==1,
 }
-transformer_config['n_layers_electrode'] = transformer_config['n_layers'] // 2
-transformer_config['n_layers_time'] = transformer_config['n_layers'] - transformer_config['n_layers_electrode']
 transformer_config['rope_encoding_scale'] = transformer_config['max_n_time_bins']
 transformer_config['dim_output'] = transformer_config['d_model']
 
@@ -162,14 +160,14 @@ def update_dir_name():
     #     dir_name += f"_tc"
     # if training_config['test_chunks_interleaved']:
     #     dir_name += f"_ti"
-    if training_config['multisubj_eval']:
-        dir_name += f"_me"
-    if training_config['symmetric_loss']:
-        dir_name += f"_sl"
     if training_config['two_views_split']:
         dir_name += f"_tv"
     if training_config['two_views_split_eval']:
         dir_name += f"_tve"
+    if training_config['multisubj_eval']:
+        dir_name += f"_me"
+    if training_config['symmetric_loss']:
+        dir_name += f"_sl"
     dir_name += f"_nff{transformer_config['n_freq_features']}"
     dir_name += f"_s{args.subjects}"
     dir_name += f"_t{transformer_config['max_n_time_bins']}"
@@ -736,8 +734,7 @@ class BrainTreebankSubjectTrialBenchmarkDataLoader:
             return self.cache_input[chunk_id]
         chunk_path = f"braintreebank_benchmark_data_chunks{'_raw' if not self.spectrogram else ''}/subject{self.subject_id}_trial{self.trial_id}_chunk{chunk_id}.npy"
         chunk_data = torch.from_numpy(np.load(chunk_path)) # shape: (n_chunks, n_electrodes, n_time_bins, n_freq_features)
-        chunk_data = chunk_data[:, :, :, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)
-        chunk_data = chunk_data[:, :, self.cut_time_bins_from:self.cut_time_bins_to, :] # trim to the number of time bins
+        chunk_data = chunk_data[:, :, self.cut_time_bins_from:self.cut_time_bins_to, :self.n_freq_features] # trim to the number of frequency features (in case we're trimming the spectrogram)#XXX
         chunk_data = chunk_data.to(self.device, dtype=transformer_config['dtype']) # data_chunk shape: (n_chunks, n_electrodes, n_time_bins, n_freqs)
         if permutation is not None:
             chunk_data = chunk_data[:, permutation, :, :]
@@ -893,7 +890,7 @@ if __name__ == "__main__":
                 time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
                 similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) * torch.exp(temp_clip_param) # shape: (n_time_bins, batch_size, batch_size)
             else:
-                electrode_output = electrode_transformer(data[:, :, :, :, :], electrode_emb[:]) #XXX
+                electrode_output = electrode_transformer(data[:, :, :n_electrodes*3//4, :, :], electrode_emb[:n_electrodes*3//4]) #XXX
                 # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                 electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                 time_output = time_transformer(electrode_output[:, :, :, :-1, :]) # shape: (batch_size, 1, 1, n_time_bins, d_model)
@@ -909,6 +906,8 @@ if __name__ == "__main__":
             if training_config['symmetric_loss']:
                 loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
                 loss /= 2
+            #loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
+            #loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
             # Calculate average distance between any two vectors in last dimension
             # Reshape to combine first 3 dimensions (batch_size, 1, 1)
@@ -972,7 +971,7 @@ if __name__ == "__main__":
                                 time_output2_reshaped = time_output2.squeeze(1).squeeze(1).transpose(0, 1) # shape: (n_time_bins, batch_size, d_model)
                                 similarity = torch.matmul(time_output_reshaped, time_output2_reshaped.transpose(1, 2)) * torch.exp(temp_clip_param) # shape: (n_time_bins, batch_size, batch_size)
                             else:
-                                electrode_output = electrode_transformer(test_data[:, :, :, :, :], electrode_emb[permutation]) #XXX
+                                electrode_output = electrode_transformer(test_data[:, :, :n_electrodes*3//4, :, :], electrode_emb[permutation][:n_electrodes*3//4]) #XXX
                                 # electrode_output shape: (batch_size, 1, n_electrodes+1, n_time_bins, d_model)
                                 electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                                 time_output = time_transformer(electrode_output[:, :, :, :-1, :]) # shape: (batch_size, 1, 1, n_time_bins, d_model)
@@ -985,10 +984,13 @@ if __name__ == "__main__":
 
                             test_loss = 0
                             expanded_arange = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-1, 1).to(device, dtype=torch.long).reshape(-1)
+                            expanded_arange_electrode = torch.arange(batch_size).unsqueeze(0).repeat(n_time_bins-2, 1).to(device, dtype=torch.long).reshape(-1)
                             test_loss += torch.nn.functional.cross_entropy(similarity.reshape(-1, batch_size), expanded_arange)
                             if training_config['symmetric_loss']:
                                 test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
                                 test_loss /= 2
+                            #test_loss += torch.nn.functional.cross_entropy(similarity_electrode.reshape(-1, batch_size), expanded_arange_electrode)
+                            #test_loss += torch.nn.functional.cross_entropy(similarity.transpose(1, 2).reshape(-1, batch_size), expanded_arange)
 
                             batch_test_loss_store.append(test_loss.item())
                             if np.isnan(test_loss.item()):
@@ -1036,10 +1038,7 @@ if __name__ == "__main__":
                             eval_input = eval_input[:, :, :n_electrodes, :, :]
                             eval_input = eval_input[:, :, permutation, :, :]
 
-                            if training_config['two_views_split_eval']:
-                                output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
-                            else:
-                                output = electrode_transformer(eval_input[:, :, :, :-1, :], electrode_emb[permutation][:])
+                            electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2 if training_config['two_views_split_eval'] else n_electrodes, :-1, :], electrode_emb[permutation][:n_electrodes//2 if training_config['two_views_split_eval'] else n_electrodes])
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output)
                             
@@ -1061,10 +1060,7 @@ if __name__ == "__main__":
                             eval_input = eval_input[:, :, :n_electrodes, :, :]
                             eval_input = eval_input[:, :, permutation, :, :]
 
-                            if training_config['two_views_split_eval']:
-                                output = electrode_transformer(eval_input[:, :, :n_electrodes//2, :-1, :], electrode_emb[permutation][:n_electrodes//2])
-                            else:
-                                output = electrode_transformer(eval_input[:, :, :, :-1, :], electrode_emb[permutation][:])                            
+                            electrode_output = electrode_transformer(eval_input[:, :, :n_electrodes//2 if training_config['two_views_split_eval'] else n_electrodes, :-1, :], electrode_emb[permutation][:n_electrodes//2 if training_config['two_views_split_eval'] else n_electrodes])
                             electrode_output = electrode_output[:, :, 0:1, :, :] # just the CLS token
                             time_output = time_transformer(electrode_output) # shape: (n_words_per_chunk, 1, 1, n_time_bins, d_model)
                             
