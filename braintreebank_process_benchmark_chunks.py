@@ -171,7 +171,6 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
     gap_chunk_count = 0
     gap_chunk_num = 0
 
-    # TODO: test this
     # Iterate through consecutive word pairs
     for i in range(len(words_df)-1):
         current_word = words_df.iloc[i]
@@ -209,9 +208,9 @@ def process_subject_trial(sub_id, trial_id, words_df, laplacian_rereferenced=LAP
                         gap_data_chunk[gap_chunk_count, j, :, :] = (gap_data_chunk[gap_chunk_count, j, :, :] - np.mean(gap_data_chunk[gap_chunk_count, j, :, :]).item()) / np.std(gap_data_chunk[gap_chunk_count, j, :, :]).item()
     
             gap_chunk_count += 1
-            window_start_sample += window_length
-            window_end_sample += window_length
-            gap_samples -= window_length
+            window_start_sample += int(window_length * (1 - BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP))
+            window_end_sample += int(window_length * (1 - BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP))
+            gap_samples -= int(window_length * (1 - BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP))
 
             # Save chunk if it's full
             if gap_chunk_count == chunk_batch_size:

@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=brain_foundation_model_training          # Name of the job
+#SBATCH --job-name=bfm_train          # Name of the job
 #SBATCH --ntasks=8             # 8 tasks total
 #SBATCH --cpus-per-task=16    # Request 8 CPU cores per GPU
 #SBATCH --gpus-per-task=1
 #SBATCH --mem-per-gpu=128G
 #SBATCH -t 24:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=0-26      # 14 jobs (108/8 rounded up)
-#SBATCH --output /shared/anzah/bfm_ic/r/%A_%a.out # STDOUT
+#SBATCH --output r/%A_%a.out # STDOUT
 
 source .venv/bin/activate
 
