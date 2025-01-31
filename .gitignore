@@ -1,15 +1,18 @@
 braintreebank/
 braintreebank_zip/
-braintreebank_data_chunks/
-braintreebank_benchmark_data_chunks/
-braintreebank_data_chunks_raw/
-braintreebank_benchmark_data_chunks_raw/
+braintreebank_datachunks/
+braintreebank_datachunks_benchmark/
+braintreebank_datachunks_benchmark_raw/
+braintreebank_datachunks_raw/
 
 presentation/
+
+temp/
 
 venv/
 .venv/
 __pycache__/
+.*/
 
 training_losses*
 training_results/

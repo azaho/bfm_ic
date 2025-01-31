@@ -2,13 +2,13 @@
 #SBATCH --job-name=bfm_run          # Name of the job
 #SBATCH --ntasks=1             # 8 tasks total
 #SBATCH --cpus-per-task=4    # Request 8 CPU cores per GPU
-#SBATCH --gres=gpu:a100:1
-#SBATCH --mem-per-gpu=128G
+#SBATCH --gres=gpu:RTXA6000:1 # A6000
+#SBATCH --mem-per-gpu=64G
 #SBATCH -t 12:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
 #SBATCH --array=1-5      # 14 jobs (108/8 rounded up)
 #SBATCH --output r/%A_%a.out # STDOUT
 #SBATCH --error r/%A_%a.err # STDERR
-#SBATCH -p yanglab
+#SBATCH -p use-everything
 
 source .venv/bin/activate
 
@@ -17,7 +17,7 @@ embedding_dim=${embedding_dim_array[$SLURM_ARRAY_TASK_ID]}
 
 echo "embedding_dim: $embedding_dim"
 
-python ttt_unscuffed.py --embedding_dim $embedding_dim --rs 1
+python ttt_unscuffed.py --embedding_dim $embedding_dim --rs 1_a
 
 # python ttt_clip_old_newer.py --two_views_split_eval $(($SLURM_ARRAY_TASK_ID%2)) --two_views_split $(($SLURM_ARRAY_TASK_ID/2%2)) --wandb_project ne_bofa1 --rs XXXXX \
 #     --dtype bfloat16 \

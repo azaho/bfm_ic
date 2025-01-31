@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from braintreebank_config import *
-from braintreebank_utils import Subject
+from braintreebank_subject import Subject
 
-def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=256,
-                          window_length=None, verbose=True, global_per_electrode_normalizing_params=True, allow_corrupted=ALLOW_CORRUPTED_ELECTRODES, 
+def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_chunks=None, nperseg=N_PER_SEG,
+                          window_length=WINDOW_LENGTH, verbose=True, global_per_electrode_normalizing_params=True, allow_corrupted=ALLOW_CORRUPTED_ELECTRODES, 
                           only_laplacian=False, save_to_dir="braintreebank_data_chunks", spectrogram=True, save_plot=False):
     if window_length is None: window_length = nperseg * 8 * 10 # 10 seconds
     assert window_length % nperseg == 0, "Window length must be divisible by nperseg"
@@ -48,23 +48,23 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
     for window_from in windows_range:
         window_to = window_from + window_length
         if spectrogram:
-            data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, SPECTROGRAM_DIMENSIONALITY), dtype=np.float32)
+            data_chunk = np.zeros(((window_to - window_from) // nperseg, n_electrodes, SPECTROGRAM_DIMENSIONALITY), dtype=np.float32)
             for i, electrode_label in enumerate(electrode_labels):
                 f, t, Sxx = subject.get_spectrogram(electrode_label, trial_id, window_from=window_from, window_to=window_to, 
                                                     normalize_per_freq=True, laplacian_rereferenced=laplacian_rereferenced, cache=True,
                                                     normalizing_params=normalizing_params[electrode_label] if global_per_electrode_normalizing_params else None)
-                data_chunk[i, :, :] = Sxx.T # data_chunk shape: (n_electrodes, n_time_bins, n_freqs)
+                data_chunk[:, i, :] = Sxx.T # data_chunk shape: (n_time_bins, n_electrodes, n_freqs)
         else:
-            data_chunk = np.zeros((n_electrodes, (window_to - window_from) // nperseg, nperseg), dtype=np.float32)
+            data_chunk = np.zeros(((window_to - window_from) // nperseg, n_electrodes, nperseg), dtype=np.float32)
             for i, electrode_label in enumerate(electrode_labels):
                 if laplacian_rereferenced:
-                    data_chunk[i, :, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
+                    data_chunk[:, i, :] = subject.get_laplacian_rereferenced_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
                 else:
-                    data_chunk[i, :, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
+                    data_chunk[:, i, :] = subject.get_electrode_data(electrode_label, trial_id, window_from=window_from, window_to=window_to, cache=True).reshape(-1, nperseg)
                 if global_per_electrode_normalizing_params:
-                    data_chunk[i, :, :] = (data_chunk[i, :, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
+                    data_chunk[:, i, :] = (data_chunk[:, i, :] - normalizing_params[electrode_label][0].item()) / normalizing_params[electrode_label][1].item()
                 else:
-                    data_chunk[i, :, :] = (data_chunk[i, :, :] - np.mean(data_chunk[i, :, :]).item()) / np.std(data_chunk[i, :, :]).item()
+                    data_chunk[:, i, :] = (data_chunk[:, i, :] - np.mean(data_chunk[:, i, :]).item()) / np.std(data_chunk[:, i, :]).item()
         assert not np.any(np.isnan(data_chunk)), f"NaN values found in data chunk for subject {sub_id}, trial {trial_id}, chunk {window_from//window_length}"
         #print(data_chunk)
         if not os.path.exists(save_to_dir):
@@ -73,7 +73,9 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
         if verbose: print(f"Saved chunk {window_from//window_length} of shape {data_chunk.shape}")
 
     # Save a plot of an example data chunk
-    n_electrodes = data_chunk.shape[0]
+    n_electrodes = data_chunk.shape[1]
+    n_time_bins = data_chunk.shape[0]
+    n_freq_features = data_chunk.shape[2]
 
     if save_plot:
         n_cols = 10
@@ -93,8 +95,6 @@ def process_subject_trial(sub_id, trial_id, laplacian_rereferenced=False, max_ch
         if verbose: print(f"Saved plot of chunk {window_from//window_length}")
 
     # Save metadata about the subject and trial
-    n_time_bins = data_chunk.shape[1]
-    n_freq_features = data_chunk.shape[2]
     with open(f'{save_to_dir}/subject{sub_id}_trial{trial_id}.json', 'w') as f:
         json.dump(
             {'subject_id': int(sub_id), 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     assert (not sub_id<0) or (trial_id<0) # if no sub id provided, then process all trials for all subjects
 
     nperseg = 256 # TODO: move to braintreebank_config.py
-    window_length = nperseg * 8 * 10 * 18 # 180 seconds per chunk, to have fewer files
+    window_length = WINDOW_LENGTH
     process_subject_ids = [sub_id] if sub_id > 0 else range(1, 11)
     for sub_id in process_subject_ids:
         process_trial_ids = [trial_id] if trial_id >= 0 else np.arange([3, 7, 3, 3, 1, 3, 2, 1, 1, 2][sub_id-1]) # if no trial id provided, then process all trials for the subject

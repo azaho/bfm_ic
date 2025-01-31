@@ -13,13 +13,16 @@ LAPLACIAN_REREFERENCED = False
 # Allow corrupted electrodes to be part of the pipeline
 ALLOW_CORRUPTED_ELECTRODES = False
 
+WINDOW_LENGTH = N_PER_SEG * 8 * 10 * 18 # 180 seconds per chunk, to have fewer files
+BENCHMARK_CHUNK_SIZE = 100
+
 # Disable file locking for HDF5 files. This is helpful for parallel processing.
 import os
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
-BENCHMARK_START_DATA_BEFORE_ONSET = 2 # in seconds
-BENCHMARK_END_DATA_AFTER_ONSET = 4 # in seconds
-BENCHMARK_PADDING_TIME = 2 # in seconds
-BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP = 0.5 # proportion of overlap between consecutive nonverbal chunks (0 means no overlap)
+BENCHMARK_START_DATA_BEFORE_ONSET = 1.5 # in seconds
+BENCHMARK_END_DATA_AFTER_ONSET = 3.5 # in seconds
+BENCHMARK_PADDING_TIME = 0 # in seconds
+BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP = 0.0 # proportion of overlap between consecutive nonverbal chunks (0 means no overlap)
 
-assert BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP > 0 and BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP <= 1, "BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP must be between 0 and 1, strictly above 0"
+assert BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP >= 0 and BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP < 1, "BENCHMARK_NONVERBAL_CONSECUTIVE_CHUNKS_OVERLAP must be between 0 and 1, strictly below 1"

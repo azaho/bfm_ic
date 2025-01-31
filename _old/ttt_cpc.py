@@ -1,6 +1,6 @@
 import torch, numpy as np, json, os, time
 from transformer_architecture_cpc import ElectrodeTransformer, TimeTransformer
-from braintreebank_utils import Subject
+from braintreebank_subject import Subject
 import argparse
 import wandb
 import pandas as pd
