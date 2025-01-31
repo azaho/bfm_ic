@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --mem-per-gpu=128G
 #SBATCH -t 12:00:00         # total run time limit (HH:MM:SS) (increased to 24 hours)
-#SBATCH --array=1-5      # 14 jobs (108/8 rounded up)
+#SBATCH --array=0-6      # 14 jobs (108/8 rounded up)
 #SBATCH --output r/%A_%a.out # STDOUT
 #SBATCH --error r/%A_%a.err # STDERR
 #SBATCH -p yanglab
@@ -17,7 +17,7 @@ embedding_dim=${embedding_dim_array[$SLURM_ARRAY_TASK_ID]}
 
 echo "embedding_dim: $embedding_dim"
 
-python ttt_unscuffed.py --embedding_dim $embedding_dim --rs 1
+python training_pretrain.py --embedding_dim $embedding_dim --rs 1
 
 # python ttt_clip_old_newer.py --two_views_split_eval $(($SLURM_ARRAY_TASK_ID%2)) --two_views_split $(($SLURM_ARRAY_TASK_ID/2%2)) --wandb_project ne_bofa1 --rs XXXXX \
 #     --dtype bfloat16 \

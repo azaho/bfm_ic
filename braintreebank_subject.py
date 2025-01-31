@@ -45,7 +45,7 @@ class Subject:
     def _get_corrupted_electrodes(self):
         corrupted_electrodes_file = os.path.join(ROOT_DIR, f'braintreebank_corrupted_elec.json')
         corrupted_electrodes = json.load(open(corrupted_electrodes_file))
-        corrupted_electrodes = [self._clean_electrode_label(e) for e in corrupted_electrodes[f'subject{self.subject_id}']]
+        corrupted_electrodes = [self._clean_electrode_label(e) for e in corrupted_electrodes[f'sub_{self.subject_id}']]
         # add electrodes that start with "DC" to corrupted electrodes, because they don't have brain signal, instead are used for triggers
         corrupted_electrodes += [e for e in self.electrode_labels if (e.upper().startswith("DC") or e.upper().startswith("TRIG"))] 
         return corrupted_electrodes
